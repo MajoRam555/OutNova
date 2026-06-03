@@ -32,12 +32,6 @@ st.markdown("""
         --on-border: #E5E7EB;
     }
     .block-container { padding-top: 1.2rem; }
-    [data-testid="stMetric"] {
-        background: #F8FAFC;
-        border: 1px solid #E5E7EB;
-        border-radius: 10px;
-        padding: 12px 14px;
-    }
     [data-testid="stMetricValue"] { font-size: 1.3rem !important; }
     .risk-low  { color: #16A34A; font-weight: 700; font-size: 1.4rem; }
     .risk-mid  { color: #D97706; font-weight: 700; font-size: 1.4rem; }
@@ -94,17 +88,6 @@ st.markdown("""
         padding: 1px 8px;
         font-size: 0.70rem;
         font-weight: 600;
-    }
-    /* Sidebar */
-    section[data-testid="stSidebar"] {
-        background: #1E293B;
-    }
-    section[data-testid="stSidebar"] * {
-        color: #E2E8F0 !important;
-    }
-    section[data-testid="stSidebar"] [data-testid="stSelectbox"] select,
-    section[data-testid="stSidebar"] label {
-        color: #E2E8F0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
