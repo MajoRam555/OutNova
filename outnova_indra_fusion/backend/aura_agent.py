@@ -49,12 +49,15 @@ class AuraChatSession:
     used_fallback: bool = False
     model_status: str = "not_loaded"
 
-    def add_message(self, role: str, content: str):
-        self.messages.append({
+    def add_message(self, role: str, content: str, source: Optional[str] = None):
+        entry = {
             "role": role,
             "content": content,
             "timestamp": datetime.utcnow().isoformat(),
-        })
+        }
+        if source:
+            entry["source"] = source
+        self.messages.append(entry)
         self.updated_at = datetime.utcnow().isoformat()
 
     def get_transcript_json(self) -> str:

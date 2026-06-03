@@ -1,4 +1,5 @@
 import logging
+import subprocess
 from pathlib import Path
 
 from config import WHISPER_MODEL
@@ -21,6 +22,27 @@ def init_whisper_model():
     except Exception as e:
         logger.error(f"No se pudo cargar Whisper: {e}")
         return None
+
+
+def convert_audio_to_wav(input_path: str, output_path: str) -> bool:
+    """Convert any audio file to 16kHz mono WAV using ffmpeg. Returns True on success."""
+    try:
+        result = subprocess.run(
+            [
+                "ffmpeg", "-y", "-i", input_path,
+                "-ar", "16000", "-ac", "1", "-f", "wav",
+                output_path,
+            ],
+            capture_output=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            logger.error(f"ffmpeg convert error: {result.stderr.decode(errors='replace')}")
+            return False
+        return True
+    except Exception as e:
+        logger.error(f"convert_audio_to_wav error: {e}")
+        return False
 
 
 def transcribe_audio_file(audio_path: str, language: str = "es") -> dict:

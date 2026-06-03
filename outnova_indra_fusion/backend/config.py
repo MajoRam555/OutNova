@@ -9,6 +9,7 @@ DATABASE_URL = f"sqlite:///{BASE_DIR}/indra_sessions.db"
 
 VIDEO_DIR = BASE_DIR / "videos_recibidos"
 AUDIO_DIR = BASE_DIR / "uploads" / "audio"
+PTT_DIR = BASE_DIR / "uploads" / "ptt"
 STATIC_DIR = BASE_DIR / "static"
 
 # Workers

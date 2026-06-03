@@ -22,13 +22,90 @@ st.set_page_config(
 # ── Styling ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    .block-container { padding-top: 1.5rem; }
-    .stMetric { background: #F8FAFC; border-radius: 8px; padding: 12px; }
-    .risk-low { color: #16A34A; font-weight: bold; font-size: 1.4rem; }
-    .risk-mid { color: #D97706; font-weight: bold; font-size: 1.4rem; }
-    .risk-high { color: #DC2626; font-weight: bold; font-size: 1.4rem; }
-    .coercion-alert { background: #FEF2F2; border: 1px solid #DC2626;
-                      border-radius: 8px; padding: 12px; color: #DC2626; }
+    /* OutNova / Majito palette */
+    :root {
+        --on-primary: #2563EB;
+        --on-success: #16A34A;
+        --on-warning: #D97706;
+        --on-error: #DC2626;
+        --on-surface: #F8FAFC;
+        --on-border: #E5E7EB;
+    }
+    .block-container { padding-top: 1.2rem; }
+    [data-testid="stMetric"] {
+        background: #F8FAFC;
+        border: 1px solid #E5E7EB;
+        border-radius: 10px;
+        padding: 12px 14px;
+    }
+    [data-testid="stMetricValue"] { font-size: 1.3rem !important; }
+    .risk-low  { color: #16A34A; font-weight: 700; font-size: 1.4rem; }
+    .risk-mid  { color: #D97706; font-weight: 700; font-size: 1.4rem; }
+    .risk-high { color: #DC2626; font-weight: 700; font-size: 1.4rem; }
+    .coercion-alert {
+        background: #FEF2F2;
+        border: 1px solid #DC2626;
+        border-radius: 8px;
+        padding: 12px 16px;
+        color: #991B1B;
+        font-weight: 500;
+    }
+    /* Transcript message cards */
+    .aura-msg {
+        background: #EFF6FF;
+        border: 1px solid #BFDBFE;
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin-bottom: 10px;
+        color: #1E3A5F;
+        font-size: 0.92rem;
+    }
+    .user-msg {
+        background: #F8FAFC;
+        border: 1px solid #E5E7EB;
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin-bottom: 10px;
+        color: #111827;
+        font-size: 0.92rem;
+    }
+    .msg-meta {
+        font-size: 0.75rem;
+        color: #6B7280;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .badge-ptt {
+        background: #DCFCE7;
+        color: #166534;
+        border: 1px solid #86EFAC;
+        border-radius: 999px;
+        padding: 1px 8px;
+        font-size: 0.70rem;
+        font-weight: 600;
+    }
+    .badge-typed {
+        background: #EFF6FF;
+        color: #1D4ED8;
+        border: 1px solid #BFDBFE;
+        border-radius: 999px;
+        padding: 1px 8px;
+        font-size: 0.70rem;
+        font-weight: 600;
+    }
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: #1E293B;
+    }
+    section[data-testid="stSidebar"] * {
+        color: #E2E8F0 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stSelectbox"] select,
+    section[data-testid="stSidebar"] label {
+        color: #E2E8F0 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -336,12 +413,27 @@ with tab_aura:
         for msg in transcript:
             role = msg.get("role", "?")
             content = msg.get("content", "")
+            source = msg.get("source", "")
             ts = msg.get("timestamp", "")[:19].replace("T", " ")
             if role == "aura":
-                st.markdown(f"🤖 **AURA** `{ts}`  \n{content}")
+                source_badge = ""
+                meta = f'🤖 <b>AURA</b> &nbsp;<span style="color:#6B7280;font-size:0.75rem">{ts}</span>'
+                st.markdown(
+                    f'<div class="aura-msg"><div class="msg-meta">{meta}</div>{content}</div>',
+                    unsafe_allow_html=True,
+                )
             else:
-                st.markdown(f"👤 **Usuario** `{ts}`  \n{content}")
-            st.divider()
+                if source == "push_to_talk":
+                    source_badge = '<span class="badge-ptt">🎙 voz</span>'
+                elif source == "typed":
+                    source_badge = '<span class="badge-typed">⌨ texto</span>'
+                else:
+                    source_badge = ""
+                meta = f'👤 <b>Usuario</b> &nbsp;<span style="color:#6B7280;font-size:0.75rem">{ts}</span> {source_badge}'
+                st.markdown(
+                    f'<div class="user-msg"><div class="msg-meta">{meta}</div>{content}</div>',
+                    unsafe_allow_html=True,
+                )
     else:
         st.info("Sin transcript de AURA.")
 

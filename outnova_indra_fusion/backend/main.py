@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from config import (AUDIO_DIR, INDRA_WORKERS, MAX_SESSION_SECONDS,
-                    MAX_UPLOAD_SIZE_MB, STATIC_DIR, VIDEO_DIR, AURA_LOAD_ON_START)
+                    MAX_UPLOAD_SIZE_MB, PTT_DIR, STATIC_DIR, VIDEO_DIR, AURA_LOAD_ON_START)
 from database import (AnalysisSession, SessionLocal, create_session_record,
                        get_db, get_session_by_client_id, init_db,
                        update_session_status)
@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
     logger.info("=== OutNova Indra Fusion — Iniciando backend ===")
 
     # Create folders
-    for d in [VIDEO_DIR, AUDIO_DIR, STATIC_DIR]:
+    for d in [VIDEO_DIR, AUDIO_DIR, PTT_DIR, STATIC_DIR]:
         d.mkdir(parents=True, exist_ok=True)
     logger.info("Carpetas de trabajo verificadas.")
 
@@ -157,6 +157,60 @@ async def aura_load():
     return {"message": "Carga de LLM iniciada en background."}
 
 
+# ── PTT: transcribe short audio clip ──────────────────────────────────────
+@app.post("/aura/transcribe-turn")
+async def transcribe_ptt_turn(
+    audio: UploadFile = File(...),
+    session_id: str = Form(...),
+):
+    import asyncio
+    from speech_to_text import convert_audio_to_wav, transcribe_audio_file
+
+    content = await audio.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Audio vacío.")
+
+    # Detect extension from filename or default to webm
+    ext = Path(audio.filename or "ptt.webm").suffix.lower() or ".webm"
+    raw_path = PTT_DIR / f"{session_id}_{uuid.uuid4().hex}{ext}"
+    wav_path = raw_path.with_suffix(".wav")
+
+    try:
+        with open(raw_path, "wb") as f:
+            f.write(content)
+
+        loop = asyncio.get_event_loop()
+        ok = await loop.run_in_executor(
+            _ml_executor,
+            lambda: convert_audio_to_wav(str(raw_path), str(wav_path)),
+        )
+        if not ok:
+            raise HTTPException(status_code=422, detail="No se pudo convertir el audio PTT.")
+
+        result = await loop.run_in_executor(
+            _ml_executor,
+            lambda: transcribe_audio_file(str(wav_path), language="es"),
+        )
+    finally:
+        for p in [raw_path, wav_path]:
+            try:
+                if p.exists():
+                    p.unlink()
+            except Exception:
+                pass
+
+    if result.get("error") and not result.get("transcription"):
+        raise HTTPException(status_code=500, detail=f"Transcripción fallida: {result['error']}")
+
+    text = result.get("transcription", "").strip()
+    return {
+        "transcription": text,
+        "words": result.get("transcription_words", 0),
+        "language": result.get("detected_language"),
+        "session_id": session_id,
+    }
+
+
 # ── WebSocket Conversación AURA ────────────────────────────────────────────
 @app.websocket("/ws/conversacion")
 async def ws_conversacion(websocket: WebSocket, session_id: str):
@@ -226,7 +280,8 @@ async def ws_conversacion(websocket: WebSocket, session_id: str):
                 if not user_text:
                     continue
 
-                session.add_message("user", user_text)
+                source = msg.get("source", "typed")
+                session.add_message("user", user_text, source=source)
                 await send_json({"type": "status", "message": "AURA está procesando..."})
 
                 # Generate reply in LLM executor

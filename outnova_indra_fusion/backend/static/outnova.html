@@ -893,6 +893,63 @@
       justify-content: flex-end;
     }
 
+    /* ─── PTT BUTTON ─────────────────────────────────────── */
+    .btn-ptt {
+      flex-shrink: 0;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border-radius: 50%;
+      background: var(--surface-secondary);
+      color: var(--text-secondary);
+      border: 1.5px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .btn-ptt:hover:not(:disabled) {
+      background: #DCFCE7;
+      color: var(--success);
+      border-color: #86EFAC;
+    }
+
+    .btn-ptt.recording {
+      background: var(--error);
+      color: #fff;
+      border-color: var(--error);
+      box-shadow: 0 0 0 4px rgba(220,38,38,0.18);
+      animation: ptt-pulse 0.9s ease-in-out infinite;
+    }
+
+    .btn-ptt:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    @keyframes ptt-pulse {
+      0%, 100% { box-shadow: 0 0 0 4px rgba(220,38,38,0.18); }
+      50%       { box-shadow: 0 0 0 8px rgba(220,38,38,0.06); }
+    }
+
+    .ptt-hint {
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-align: center;
+      padding: 3px 16px 0;
+      letter-spacing: 0.01em;
+    }
+
+    .ptt-hint.active {
+      color: var(--error);
+      font-weight: 600;
+    }
+
     /* ══════════════════════════════════════════════════════
        PHASE 3 — UPLOAD / COMPLETION
     ══════════════════════════════════════════════════════ */
@@ -1313,6 +1370,11 @@
               <!-- Messages injected here -->
             </div>
             <div class="input-area">
+              <button class="btn-ptt" id="btn-ptt" title="Mantén presionado para hablar">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+              </button>
               <input type="text" class="msg-input" id="msg-input" placeholder="Escribe tu respuesta..." autocomplete="off" />
               <button class="btn btn-primary" id="btn-send-msg">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1320,6 +1382,7 @@
                 </svg>
               </button>
             </div>
+            <div class="ptt-hint" id="ptt-hint">Mantén el micrófono para hablar</div>
           </div>
         </div>
 
@@ -1505,6 +1568,8 @@
   const msgInput        = $('msg-input');
   const btnSendMsg      = $('btn-send-msg');
   const btnEndSession   = $('btn-end-session');
+  const btnPtt          = $('btn-ptt');
+  const pttHint         = $('ptt-hint');
 
   // Phase 3
   const uploadState   = $('upload-state');
@@ -1535,6 +1600,12 @@
   let currentLumRaw    = 0;
   let currentNoiseRaw  = 0;
   let isSpeaking       = false;
+
+  // PTT state
+  let pttRecorder      = null;
+  let pttChunks        = [];
+  let pttActive        = false;
+  let pttMimeType      = '';
 
   /* ════════════════════════════════════════════════════════
      HELPERS
@@ -1912,7 +1983,7 @@
   /* ════════════════════════════════════════════════════════
      CHAT MESSAGES
   ════════════════════════════════════════════════════════ */
-  function addMessage(role, text) {
+  function addMessage(role, text, source) {
     messageCount++;
     msgCountEl.textContent = messageCount + (messageCount === 1 ? ' mensaje' : ' mensajes');
 
@@ -1931,7 +2002,9 @@
 
     const time = document.createElement('div');
     time.className = 'msg-time';
-    time.textContent = nowTime();
+    let timeText = nowTime();
+    if (source === 'push_to_talk') timeText += ' · 🎙 voz';
+    time.textContent = timeText;
 
     inner.appendChild(bubble);
     inner.appendChild(time);
@@ -1954,7 +2027,7 @@
     addMessage('user', text);
 
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'user_text', text }));
+      ws.send(JSON.stringify({ type: 'user_text', text, source: 'typed' }));
     }
   }
 
@@ -1965,6 +2038,114 @@
       sendUserMessage();
     }
   });
+
+  /* ════════════════════════════════════════════════════════
+     PUSH-TO-TALK
+  ════════════════════════════════════════════════════════ */
+  function getPttMimeType() {
+    const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg', 'audio/mp4'];
+    for (const t of types) {
+      if (MediaRecorder.isTypeSupported(t)) return t;
+    }
+    return '';
+  }
+
+  function pttStart() {
+    if (pttActive || !mediaStream) return;
+    const audioTrack = mediaStream.getAudioTracks()[0];
+    if (!audioTrack) return;
+
+    pttMimeType = getPttMimeType();
+    const audioStream = new MediaStream([audioTrack]);
+    const opts = pttMimeType ? { mimeType: pttMimeType } : {};
+    try {
+      pttRecorder = new MediaRecorder(audioStream, opts);
+    } catch (e) {
+      pttRecorder = new MediaRecorder(audioStream);
+    }
+
+    pttChunks = [];
+    pttRecorder.ondataavailable = e => {
+      if (e.data && e.data.size > 0) pttChunks.push(e.data);
+    };
+    pttRecorder.onstop = pttUploadAndSend;
+    pttRecorder.start();
+
+    pttActive = true;
+    btnPtt.classList.add('recording');
+    pttHint.textContent = 'Grabando... suelta para enviar';
+    pttHint.classList.add('active');
+    setAuraStatus('Grabando voz PTT...');
+  }
+
+  function pttStop() {
+    if (!pttActive || !pttRecorder) return;
+    pttActive = false;
+    btnPtt.classList.remove('recording');
+    pttHint.textContent = 'Procesando...';
+    pttHint.classList.remove('active');
+
+    if (pttRecorder.state !== 'inactive') {
+      pttRecorder.stop();
+    }
+  }
+
+  async function pttUploadAndSend() {
+    if (pttChunks.length === 0) {
+      pttHint.textContent = 'Mantén el micrófono para hablar';
+      return;
+    }
+
+    const mime = pttMimeType || 'audio/webm';
+    const ext  = mime.includes('ogg') ? 'ogg' : mime.includes('mp4') ? 'mp4' : 'webm';
+    const blob = new Blob(pttChunks, { type: mime });
+    pttChunks  = [];
+
+    const fd = new FormData();
+    fd.append('audio', blob, `ptt_${clientSessionId}.${ext}`);
+    fd.append('session_id', clientSessionId);
+
+    try {
+      setAuraStatus('Transcribiendo voz...', true);
+      const resp = await fetch('/aura/transcribe-turn', { method: 'POST', body: fd });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${resp.status}`);
+      }
+
+      const data = await resp.json();
+      const text = (data.transcription || '').trim();
+
+      if (!text) {
+        setAuraStatus('No se detectó voz. Intenta de nuevo.');
+        pttHint.textContent = 'Mantén el micrófono para hablar';
+        return;
+      }
+
+      addMessage('user', text, 'push_to_talk');
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'user_text', text, source: 'push_to_talk' }));
+      }
+
+    } catch (err) {
+      console.error('PTT transcription error:', err);
+      setAuraStatus('Error en PTT: ' + err.message);
+    } finally {
+      pttHint.textContent = 'Mantén el micrófono para hablar';
+    }
+  }
+
+  // PTT mouse events
+  btnPtt.addEventListener('mousedown', e => { e.preventDefault(); pttStart(); });
+  btnPtt.addEventListener('mouseup',   e => { e.preventDefault(); pttStop();  });
+  btnPtt.addEventListener('mouseleave', e => { if (pttActive) pttStop(); });
+
+  // PTT touch events
+  btnPtt.addEventListener('touchstart', e => { e.preventDefault(); pttStart(); }, { passive: false });
+  btnPtt.addEventListener('touchend',   e => { e.preventDefault(); pttStop();  }, { passive: false });
+  btnPtt.addEventListener('touchcancel', e => { if (pttActive) pttStop(); }, { passive: false });
 
   /* ════════════════════════════════════════════════════════
      END SESSION → PHASE 3
