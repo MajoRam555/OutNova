@@ -1,0 +1,11 @@
+# OutNova Indra Fusion — Dependencias ML pesadas
+# Instalar DESPUÉS de requirements.txt
+# Uso: pip install -r requirements-ml.txt
+
+# PyTorch CPU (ajustar para GPU si se necesita)
+torch
+torchvision
+torchaudio
+
+# Whisper (openai-whisper para máxima compatibilidad Python 3.11)
+openai-whisper

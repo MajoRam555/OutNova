@@ -1,0 +1,42 @@
+# OutNova Indra Fusion — Dependencias base
+# Python 3.11 requerido
+
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.9
+websockets>=12.0
+sqlalchemy>=2.0.25
+pydantic>=2.5.0
+python-dotenv>=1.0.1
+requests>=2.31.0
+
+# Numeric / ML base
+numpy>=1.24.4,<2.0.0
+pandas>=2.1.0
+scipy>=1.12.0
+
+# Vision
+opencv-python>=4.9.0.80
+Pillow>=10.2.0
+
+# Audio
+soundfile>=0.12.0
+librosa>=0.10.0
+
+# ML transformers
+transformers>=4.40.0
+accelerate>=0.27.0
+sentencepiece>=0.2.0
+protobuf>=4.25.0
+
+# Video
+moviepy>=1.0.3
+imageio>=2.33.0
+imageio-ffmpeg>=0.4.9
+
+# Dashboard
+streamlit>=1.32.0
+plotly>=5.20.0
+
+# Utils
+tqdm>=4.66.0

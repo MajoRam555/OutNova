@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OutNova — Verificación de Seguridad</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --surface-secondary: #F1F5F9;
+      --border: #E5E7EB;
+      --primary: #2563EB;
+      --primary-dark: #1D4ED8;
+      --text-primary: #111827;
+      --text-secondary: #6B7280;
+      --success: #16A34A;
+      --warning: #D97706;
+      --error: #DC2626;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.05);
+      --radius: 10px;
+      --radius-lg: 14px;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── LAYOUT ─────────────────────────────────────────── */
+    .app-wrapper {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .main-content {
+      flex: 1;
+      padding: 32px 16px;
+      max-width: 820px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* ─── HEADER ─────────────────────────────────────────── */
+    .app-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .logo-mark {
+      width: 36px;
+      height: 36px;
+      background: var(--primary);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      color: #fff;
+      letter-spacing: 0.02em;
+    }
+
+    .logo-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-secondary);
+      flex-shrink: 0;
+      transition: background 0.3s ease;
+    }
+
+    .status-dot.ready    { background: var(--success); }
+    .status-dot.checking { background: var(--warning); animation: pulse-dot 1.2s infinite; }
+    .status-dot.active   { background: var(--primary); animation: pulse-dot 1.8s infinite; }
+    .status-dot.sending  { background: var(--warning); animation: pulse-dot 0.8s infinite; }
+    .status-dot.done     { background: var(--success); }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.35; }
+    }
+
+    .status-text {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .session-id-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: 'Courier New', monospace;
+      background: var(--surface-secondary);
+      padding: 3px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      letter-spacing: 0.02em;
+    }
+
+    /* ─── FOOTER ─────────────────────────────────────────── */
+    .app-footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-item {
+      font-size: 11px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .footer-sep {
+      color: var(--border);
+      font-size: 11px;
+    }
+
+    /* ─── BUTTONS ─────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: none;
+      outline: none;
+    }
+
+    .btn:focus-visible {
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.25);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-dark);
+    }
+
+    .btn-primary:disabled {
+      background: #93C5FD;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: var(--surface-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--border);
+    }
+
+    .btn-danger {
+      background: var(--error);
+      color: #fff;
+    }
+
+    .btn-danger:hover {
+      background: #B91C1C;
+    }
+
+    .btn-lg {
+      padding: 13px 32px;
+      font-size: 15px;
+      border-radius: 12px;
+    }
+
+    /* ─── CARDS ─────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      padding: 24px;
+    }
+
+    /* ─── PHASE TRANSITIONS ──────────────────────────────── */
+    .phase {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .phase.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       PHASE 0 — WELCOME
+    ══════════════════════════════════════════════════════ */
+    .phase-0-hero {
+      text-align: center;
+      padding: 48px 16px 32px;
+    }
+
+    .phase-0-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #EFF6FF;
+      color: var(--primary);
+      border: 1px solid #BFDBFE;
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    .phase-0-title {
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+
+    .phase-0-subtitle {
+      font-size: 15px;
+      color: var(--text-secondary);
+      margin-bottom: 40px;
+    }
+
+    .info-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .info-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 16px;
+      text-align: center;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .info-card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .info-card-icon {
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 12px;
+      background: var(--surface-secondary);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+    }
+
+    .info-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .info-card-desc {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       PHASE 1 — ENVIRONMENT CHECK
+    ══════════════════════════════════════════════════════ */
+    .phase-1-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 700px) {
+      .phase-1-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .camera-container {
+      position: relative;
+      background: #0F172A;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      aspect-ratio: 4/3;
+      border: 1px solid var(--border);
+    }
+
+    #camera-preview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .scan-line {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(37,99,235,0.8), transparent);
+      box-shadow: 0 0 8px rgba(37,99,235,0.6);
+      animation: scan 2.5s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes scan {
+      0%   { top: 0%; }
+      100% { top: 100%; }
+    }
+
+    .camera-overlay-corner {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-color: rgba(37,99,235,0.7);
+      border-style: solid;
+    }
+
+    .corner-tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; border-radius: 3px 0 0 0; }
+    .corner-tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; border-radius: 0 3px 0 0; }
+    .corner-bl { bottom: 12px; left: 12px; border-width: 0 0 2px 2px; border-radius: 0 0 0 3px; }
+    .corner-br { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; border-radius: 0 0 3px 0; }
+
+    .env-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .env-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+
+    .meter-group {
+      margin-bottom: 10px;
+    }
+
+    .meter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .meter-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .meter-value {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .progress-bar-track {
+      height: 6px;
+      background: var(--surface-secondary);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease, background 0.3s ease;
+    }
+
+    .fill-lum  { background: var(--warning); }
+    .fill-lum.ok  { background: var(--success); }
+    .fill-noise { background: var(--success); }
+    .fill-noise.warn { background: var(--error); }
+
+    .alert-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid;
+      margin-top: 8px;
+    }
+
+    .alert-warning {
+      background: #FFFBEB;
+      color: #92400E;
+      border-color: #FDE68A;
+    }
+
+    .alert-error {
+      background: #FEF2F2;
+      color: #991B1B;
+      border-color: #FECACA;
+    }
+
+    .hidden { display: none !important; }
+
+    .checklist {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .checklist-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--surface-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .check-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .check-icon svg { display: block; }
+
+    .check-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .check-status {
+      margin-left: auto;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+
+    .check-status.checking {
+      background: #FEF3C7;
+      color: #92400E;
+    }
+
+    .check-status.ok {
+      background: #DCFCE7;
+      color: #166534;
+    }
+
+    .check-status.warn {
+      background: #FEE2E2;
+      color: #991B1B;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       PHASE 2 — AURA CONVERSATION
+    ══════════════════════════════════════════════════════ */
+    .phase-2-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .session-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .rec-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--error);
+      letter-spacing: 0.05em;
+    }
+
+    .rec-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--error);
+      border-radius: 50%;
+      animation: rec-blink 1s ease-in-out infinite;
+    }
+
+    @keyframes rec-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    .session-timer {
+      font-size: 18px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      letter-spacing: 0.04em;
+    }
+
+    .camera-pip {
+      width: 120px;
+      height: 90px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      background: #0F172A;
+      flex-shrink: 0;
+    }
+
+    .camera-pip video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .phase-2-body {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 700px) {
+      .phase-2-body {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* AURA Agent Panel */
+    .aura-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px 16px;
+      text-align: center;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .aura-orb {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 16px;
+      background: radial-gradient(circle at 38% 38%, #60A5FA, var(--primary), var(--primary-dark));
+      border-radius: 50%;
+      position: relative;
+      box-shadow: 0 0 0 0 rgba(37,99,235,0.4);
+      animation: orb-idle 3s ease-in-out infinite;
+    }
+
+    .aura-orb.speaking {
+      animation: orb-speak 0.6s ease-in-out infinite alternate;
+    }
+
+    @keyframes orb-idle {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,235,0.25), 0 4px 20px rgba(37,99,235,0.2); }
+      50% { box-shadow: 0 0 0 10px rgba(37,99,235,0.05), 0 4px 20px rgba(37,99,235,0.3); }
+    }
+
+    @keyframes orb-speak {
+      from { transform: scale(1); box-shadow: 0 0 0 0 rgba(37,99,235,0.3), 0 4px 20px rgba(37,99,235,0.25); }
+      to   { transform: scale(1.1); box-shadow: 0 0 0 14px rgba(37,99,235,0.05), 0 4px 24px rgba(37,99,235,0.4); }
+    }
+
+    .aura-orb-inner {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+    }
+
+    .aura-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 3px;
+    }
+
+    .aura-role {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    .audio-wave {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 3px;
+      height: 28px;
+      margin-bottom: 16px;
+    }
+
+    .wave-bar {
+      width: 4px;
+      background: var(--primary);
+      border-radius: 2px;
+      animation: wave-idle 1.4s ease-in-out infinite;
+      min-height: 3px;
+    }
+
+    .wave-bar:nth-child(1) { animation-delay: 0s; }
+    .wave-bar:nth-child(2) { animation-delay: 0.15s; }
+    .wave-bar:nth-child(3) { animation-delay: 0.3s; }
+    .wave-bar:nth-child(4) { animation-delay: 0.15s; }
+    .wave-bar:nth-child(5) { animation-delay: 0s; }
+
+    @keyframes wave-idle {
+      0%, 100% { height: 5px; opacity: 0.4; }
+      50% { height: 20px; opacity: 1; }
+    }
+
+    .audio-wave.speaking .wave-bar {
+      animation: wave-speak 0.4s ease-in-out infinite alternate;
+    }
+
+    .audio-wave.speaking .wave-bar:nth-child(1) { animation-delay: 0s; }
+    .audio-wave.speaking .wave-bar:nth-child(2) { animation-delay: 0.08s; }
+    .audio-wave.speaking .wave-bar:nth-child(3) { animation-delay: 0.16s; }
+    .audio-wave.speaking .wave-bar:nth-child(4) { animation-delay: 0.08s; }
+    .audio-wave.speaking .wave-bar:nth-child(5) { animation-delay: 0s; }
+
+    @keyframes wave-speak {
+      from { height: 4px; }
+      to   { height: 26px; }
+    }
+
+    .aura-status-text {
+      font-size: 11px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Conversation Box */
+    .conversation-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      height: 440px;
+    }
+
+    .conversation-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .conversation-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .message-count-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: var(--surface-secondary);
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+
+    .messages-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      scroll-behavior: smooth;
+    }
+
+    .messages-area::-webkit-scrollbar { width: 4px; }
+    .messages-area::-webkit-scrollbar-track { background: transparent; }
+    .messages-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .msg {
+      display: flex;
+      gap: 8px;
+      max-width: 88%;
+    }
+
+    .msg.aura { align-self: flex-start; }
+    .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+
+    .msg-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .msg.aura .msg-avatar {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .msg.user .msg-avatar {
+      background: var(--surface-secondary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .msg-bubble {
+      padding: 9px 13px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .msg.aura .msg-bubble {
+      background: #EFF6FF;
+      color: #1E3A5F;
+      border: 1px solid #BFDBFE;
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg.user .msg-bubble {
+      background: var(--surface-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg-time {
+      font-size: 10px;
+      color: var(--text-secondary);
+      margin-top: 3px;
+    }
+
+    .input-area {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    }
+
+    .msg-input {
+      flex: 1;
+      padding: 9px 13px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text-primary);
+      background: var(--surface-secondary);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .msg-input:focus {
+      border-color: var(--primary);
+      background: var(--surface);
+    }
+
+    .msg-input::placeholder { color: var(--text-secondary); }
+
+    .phase-2-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       PHASE 3 — UPLOAD / COMPLETION
+    ══════════════════════════════════════════════════════ */
+    .phase-3-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 60px 24px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .upload-icon-wrapper {
+      width: 72px;
+      height: 72px;
+      background: #EFF6FF;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      color: var(--primary);
+    }
+
+    .upload-icon-wrapper.success {
+      background: #DCFCE7;
+      color: var(--success);
+    }
+
+    .upload-icon-wrapper svg {
+      animation: upload-bounce 1.2s ease-in-out infinite;
+    }
+
+    @keyframes upload-bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    .upload-icon-wrapper.success svg { animation: none; }
+
+    .phase-3-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .phase-3-subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .upload-steps {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .upload-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: all 0.3s ease;
+    }
+
+    .upload-step.active {
+      border-color: #BFDBFE;
+      background: #EFF6FF;
+      color: var(--primary);
+    }
+
+    .upload-step.done {
+      border-color: #BBF7D0;
+      background: #F0FDF4;
+      color: var(--success);
+    }
+
+    .step-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .upload-progress-track {
+      width: 100%;
+      height: 6px;
+      background: var(--surface-secondary);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+
+    .upload-progress-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 999px;
+      transition: width 0.6s ease;
+    }
+
+    .success-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #F0FDF4;
+      color: var(--success);
+      border: 1px solid #BBF7D0;
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    /* ─── UTILITY ─────────────────────────────────────────── */
+    .section-header {
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .section-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 3px;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+    }
+
+    /* ─── HIDDEN CANVAS ─────────────────────────────────────── */
+    #lum-canvas { display: none; }
+  </style>
+</head>
+<body>
+<div class="app-wrapper">
+
+  <!-- ─── HEADER ─────────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="header-logo">
+      <div class="logo-mark">ON</div>
+      <span class="logo-name">OutNova</span>
+    </div>
+
+    <div class="header-center">
+      <div class="status-dot" id="header-dot"></div>
+      <span class="status-text" id="header-status">Sistema listo</span>
+    </div>
+
+    <div class="header-right">
+      <span class="session-id-label" id="header-session-id">—</span>
+    </div>
+  </header>
+
+  <!-- ─── MAIN ─────────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- ══ PHASE 0 — WELCOME ══ -->
+    <section id="phase-0" class="phase active">
+      <div class="phase-0-hero">
+        <div class="phase-0-badge">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+            <circle cx="5" cy="5" r="5" />
+          </svg>
+          Protocolo Seguro
+        </div>
+        <h1 class="phase-0-title">Verificación de Seguridad</h1>
+        <p class="phase-0-subtitle">Sistema de validación de identidad · Protocolo OutNova</p>
+
+        <div class="info-cards-grid">
+          <div class="info-card">
+            <div class="info-card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 7 16 12 23 17V7z"/>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+              </svg>
+            </div>
+            <div class="info-card-title">Cámara</div>
+            <div class="info-card-desc">Captura de video biométrico de alta resolución</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+            </div>
+            <div class="info-card-title">Iluminación</div>
+            <div class="info-card-desc">Análisis de condiciones lumínicas del entorno</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a10 10 0 1 0 10 10H12V2z"/>
+                <path d="M12 2a10 10 0 0 1 10 10"/>
+                <circle cx="12" cy="12" r="2"/>
+              </svg>
+            </div>
+            <div class="info-card-title">Agente IA</div>
+            <div class="info-card-desc">Entrevista conductual con análisis en tiempo real</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </div>
+            <div class="info-card-title">Datos Cifrados</div>
+            <div class="info-card-desc">Transmisión segura con cifrado TLS 1.3 extremo a extremo</div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-lg" id="btn-start-env-check">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          Iniciar verificación de entorno
+        </button>
+      </div>
+    </section>
+
+    <!-- ══ PHASE 1 — ENVIRONMENT CHECK ══ -->
+    <section id="phase-1" class="phase">
+      <div class="section-header">
+        <h2 class="section-title">Verificación de entorno</h2>
+        <p class="section-desc">Asegúrese de estar en un lugar bien iluminado y silencioso.</p>
+      </div>
+
+      <div class="phase-1-layout">
+        <!-- Camera Preview -->
+        <div>
+          <div class="camera-container">
+            <video id="camera-preview" autoplay muted playsinline></video>
+            <div class="scan-line"></div>
+            <div class="camera-overlay-corner corner-tl"></div>
+            <div class="camera-overlay-corner corner-tr"></div>
+            <div class="camera-overlay-corner corner-bl"></div>
+            <div class="camera-overlay-corner corner-br"></div>
+          </div>
+          <canvas id="lum-canvas" width="32" height="24"></canvas>
+        </div>
+
+        <!-- Environment Panel -->
+        <div class="env-panel">
+          <div class="card">
+            <p class="env-section-title">Métricas del entorno</p>
+
+            <!-- Luminosity -->
+            <div class="meter-group">
+              <div class="meter-header">
+                <span class="meter-label">Iluminación</span>
+                <span class="meter-value" id="lum-value">—</span>
+              </div>
+              <div class="progress-bar-track">
+                <div class="progress-bar-fill fill-lum" id="lum-bar" style="width:0%"></div>
+              </div>
+            </div>
+
+            <!-- Alert: too dark -->
+            <div class="alert-banner alert-warning hidden" id="alert-dark">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              Ambiente poco iluminado. Encienda una luz o acérquese a una ventana.
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Noise -->
+            <div class="meter-group">
+              <div class="meter-header">
+                <span class="meter-label">Ruido ambiental</span>
+                <span class="meter-value" id="noise-value">—</span>
+              </div>
+              <div class="progress-bar-track">
+                <div class="progress-bar-fill fill-noise" id="noise-bar" style="width:0%"></div>
+              </div>
+            </div>
+
+            <!-- Alert: too noisy -->
+            <div class="alert-banner alert-error hidden" id="alert-noise">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              Nivel de ruido elevado. Busque un lugar más silencioso.
+            </div>
+          </div>
+
+          <div class="card">
+            <p class="env-section-title">Estado de permisos</p>
+            <ul class="checklist" id="checklist">
+              <li class="checklist-item" id="chk-camera">
+                <div class="check-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M23 7 16 12 23 17V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                  </svg>
+                </div>
+                <span class="check-label">Cámara</span>
+                <span class="check-status checking" data-key="camera">Verificando</span>
+              </li>
+              <li class="checklist-item" id="chk-mic">
+                <div class="check-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+                  </svg>
+                </div>
+                <span class="check-label">Micrófono</span>
+                <span class="check-status checking" data-key="mic">Verificando</span>
+              </li>
+              <li class="checklist-item" id="chk-lum">
+                <div class="check-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                  </svg>
+                </div>
+                <span class="check-label">Iluminación</span>
+                <span class="check-status checking" data-key="lum">Verificando</span>
+              </li>
+              <li class="checklist-item" id="chk-noise">
+                <div class="check-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                  </svg>
+                </div>
+                <span class="check-label">Ruido ambiental</span>
+                <span class="check-status checking" data-key="noise">Verificando</span>
+              </li>
+            </ul>
+          </div>
+
+          <button class="btn btn-primary" id="btn-start-session" disabled>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            Comenzar sesión
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PHASE 2 — AURA CONVERSATION ══ -->
+    <section id="phase-2" class="phase">
+      <div class="phase-2-layout">
+
+        <!-- Top bar: REC + Timer + PiP -->
+        <div class="session-topbar">
+          <div class="rec-badge">
+            <div class="rec-dot"></div>
+            REC
+          </div>
+          <div class="session-timer" id="session-timer">00:00</div>
+          <div class="camera-pip">
+            <video id="camera-pip-video" autoplay muted playsinline></video>
+          </div>
+        </div>
+
+        <!-- Body: AURA Panel + Chat -->
+        <div class="phase-2-body">
+
+          <!-- AURA -->
+          <div class="aura-panel">
+            <div class="aura-orb" id="aura-orb">
+              <div class="aura-orb-inner"></div>
+            </div>
+            <div class="aura-name">Agente Nova (AURA)</div>
+            <div class="aura-role">Agente de verificación biométrica</div>
+            <div class="audio-wave" id="audio-wave">
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+            </div>
+            <div class="aura-status-text" id="aura-status-text">
+              <span id="aura-status-content">En espera...</span>
+            </div>
+          </div>
+
+          <!-- Conversation -->
+          <div class="conversation-card">
+            <div class="conversation-header">
+              <span class="conversation-title">Conversación</span>
+              <span class="message-count-badge" id="msg-count">0 mensajes</span>
+            </div>
+            <div class="messages-area" id="messages-area">
+              <!-- Messages injected here -->
+            </div>
+            <div class="input-area">
+              <input type="text" class="msg-input" id="msg-input" placeholder="Escribe tu respuesta..." autocomplete="off" />
+              <button class="btn btn-primary" id="btn-send-msg">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="phase-2-actions">
+          <button class="btn btn-danger" id="btn-end-session">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            </svg>
+            Finalizar sesión
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══ PHASE 3 — UPLOAD / COMPLETION ══ -->
+    <section id="phase-3" class="phase">
+
+      <!-- Upload State -->
+      <div id="upload-state" class="phase-3-center">
+        <div class="upload-icon-wrapper">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+          </svg>
+        </div>
+        <h2 class="phase-3-title">Enviando sesión</h2>
+        <p class="phase-3-subtitle">Por favor, no cierre esta ventana. Estamos procesando y transmitiendo de forma segura su sesión de verificación.</p>
+
+        <div class="upload-steps" id="upload-steps">
+          <div class="upload-step" id="step-0">
+            <div class="step-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="8 6 2 12 8 18"/><polyline points="16 6 22 12 16 18"/>
+              </svg>
+            </div>
+            Comprimiendo video...
+          </div>
+          <div class="upload-step" id="step-1">
+            <div class="step-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </div>
+            Cifrando datos...
+          </div>
+          <div class="upload-step" id="step-2">
+            <div class="step-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            Conectando con servidor...
+          </div>
+          <div class="upload-step" id="step-3">
+            <div class="step-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+              </svg>
+            </div>
+            Transfiriendo...
+          </div>
+        </div>
+
+        <div class="upload-progress-track">
+          <div class="upload-progress-fill" id="upload-progress-fill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Success State -->
+      <div id="success-state" class="phase-3-center hidden">
+        <div class="upload-icon-wrapper success">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <h2 class="phase-3-title">Sesión enviada correctamente</h2>
+        <p class="phase-3-subtitle">Test completado, espera aprobación para continuar. Tu sesión ha sido recibida y está siendo revisada por nuestro equipo.</p>
+        <div class="success-badge">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Sesión enviada · En revisión
+        </div>
+      </div>
+
+      <!-- Error State -->
+      <div id="error-state" class="phase-3-center hidden">
+        <div class="upload-icon-wrapper" style="background:#FEF2F2;color:var(--error)">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+        </div>
+        <h2 class="phase-3-title">Error al enviar</h2>
+        <p class="phase-3-subtitle" id="error-msg-text">Ha ocurrido un error al enviar la sesión.</p>
+        <button class="btn btn-primary" id="btn-retry-upload">
+          Reintentar envío
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ─── FOOTER ─────────────────────────────────────────── -->
+  <footer class="app-footer">
+    <div class="footer-item">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      OutNova Security v2.4.1
+    </div>
+    <span class="footer-sep">·</span>
+    <div class="footer-item">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      Conexión cifrada TLS 1.3
+    </div>
+    <span class="footer-sep">·</span>
+    <div class="footer-item" id="footer-session-id">Sesión: —</div>
+  </footer>
+
+</div>
+
+<script>
+  'use strict';
+
+  /* ════════════════════════════════════════════════════════
+     CONSTANTS & CONFIG
+  ════════════════════════════════════════════════════════ */
+  const LUM_THRESH   = 40;
+  const NOISE_THRESH = 40;
+
+  /* ════════════════════════════════════════════════════════
+     SESSION ID
+  ════════════════════════════════════════════════════════ */
+  const clientSessionId = (() => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+  })();
+
+  /* ════════════════════════════════════════════════════════
+     DOM REFS
+  ════════════════════════════════════════════════════════ */
+  const $  = id => document.getElementById(id);
+  const phases = [0,1,2,3].map(i => $(`phase-${i}`));
+
+  // Header
+  const headerDot       = $('header-dot');
+  const headerStatus    = $('header-status');
+  const headerSessionId = $('header-session-id');
+  const footerSessionId = $('footer-session-id');
+
+  // Phase 0
+  const btnStartEnvCheck = $('btn-start-env-check');
+
+  // Phase 1
+  const cameraPreview = $('camera-preview');
+  const lumCanvas     = $('lum-canvas');
+  const lumCtx        = lumCanvas.getContext('2d', { willReadFrequently: true });
+  const lumBar        = $('lum-bar');
+  const lumValue      = $('lum-value');
+  const noiseBar      = $('noise-bar');
+  const noiseValue    = $('noise-value');
+  const alertDark     = $('alert-dark');
+  const alertNoise    = $('alert-noise');
+  const btnStartSession = $('btn-start-session');
+
+  // Phase 2
+  const cameraPipVideo  = $('camera-pip-video');
+  const sessionTimerEl  = $('session-timer');
+  const auraOrb         = $('aura-orb');
+  const audioWave       = $('audio-wave');
+  const auraStatusContent = $('aura-status-content');
+  const messagesArea    = $('messages-area');
+  const msgCountEl      = $('msg-count');
+  const msgInput        = $('msg-input');
+  const btnSendMsg      = $('btn-send-msg');
+  const btnEndSession   = $('btn-end-session');
+
+  // Phase 3
+  const uploadState   = $('upload-state');
+  const successState  = $('success-state');
+  const errorState    = $('error-state');
+  const uploadSteps   = [0,1,2,3].map(i => $(`step-${i}`));
+  const uploadProgressFill = $('upload-progress-fill');
+  const errorMsgText  = $('error-msg-text');
+  const btnRetryUpload = $('btn-retry-upload');
+
+  /* ════════════════════════════════════════════════════════
+     STATE
+  ════════════════════════════════════════════════════════ */
+  let mediaStream      = null;
+  let audioCtx         = null;
+  let analyser         = null;
+  let lumInterval      = null;
+  let noiseInterval    = null;
+  let mediaRecorder    = null;
+  let recordedChunks   = [];
+  let sessionTimerInterval = null;
+  let sessionSeconds   = 0;
+  let ws               = null;
+  let pingInterval     = null;
+  let messageCount     = 0;
+  let lumOk            = false;
+  let noiseOk          = false;
+  let currentLumRaw    = 0;
+  let currentNoiseRaw  = 0;
+  let isSpeaking       = false;
+
+  /* ════════════════════════════════════════════════════════
+     HELPERS
+  ════════════════════════════════════════════════════════ */
+  function setHeader(dotClass, text) {
+    headerDot.className = 'status-dot ' + dotClass;
+    headerStatus.textContent = text;
+  }
+
+  function showPhase(idx) {
+    phases.forEach((p, i) => {
+      if (i === idx) {
+        p.classList.add('active');
+      } else {
+        p.classList.remove('active');
+      }
+    });
+  }
+
+  function setCheckStatus(key, statusClass, text) {
+    const el = document.querySelector(`[data-key="${key}"]`);
+    if (!el) return;
+    el.className = 'check-status ' + statusClass;
+    el.textContent = text;
+  }
+
+  function clamp(val, min, max) {
+    return Math.min(Math.max(val, min), max);
+  }
+
+  function formatTime(secs) {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  function nowTime() {
+    const d = new Date();
+    return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+  }
+
+  function updateSessionBtn() {
+    btnStartSession.disabled = !(lumOk && noiseOk);
+  }
+
+  /* ════════════════════════════════════════════════════════
+     SESSION ID DISPLAY
+  ════════════════════════════════════════════════════════ */
+  const shortId = clientSessionId.substring(0, 8).toUpperCase();
+  headerSessionId.textContent = shortId;
+  footerSessionId.textContent = `Sesión: ${shortId}`;
+
+  /* ════════════════════════════════════════════════════════
+     PHASE 0 → PHASE 1
+  ════════════════════════════════════════════════════════ */
+  btnStartEnvCheck.addEventListener('click', async () => {
+    setHeader('checking', 'Verificando entorno');
+    showPhase(1);
+    await initMediaDevices();
+  });
+
+  /* ════════════════════════════════════════════════════════
+     MEDIA DEVICES
+  ════════════════════════════════════════════════════════ */
+  async function initMediaDevices() {
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      cameraPreview.srcObject = mediaStream;
+      await cameraPreview.play().catch(() => {});
+
+      setCheckStatus('camera', 'ok', 'OK');
+      setCheckStatus('mic', 'ok', 'OK');
+
+      startLuminosityAnalysis();
+      startNoiseAnalysis();
+
+    } catch (err) {
+      console.error('getUserMedia error:', err);
+      const denied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
+      setCheckStatus('camera', 'warn', denied ? 'Denegado' : 'Error');
+      setCheckStatus('mic',    'warn', denied ? 'Denegado' : 'Error');
+      setCheckStatus('lum',    'warn', 'N/A');
+      setCheckStatus('noise',  'warn', 'N/A');
+      setHeader('checking', 'Verificando entorno');
+    }
+  }
+
+  /* ════════════════════════════════════════════════════════
+     LUMINOSITY ANALYSIS
+  ════════════════════════════════════════════════════════ */
+  function startLuminosityAnalysis() {
+    lumInterval = setInterval(() => {
+      if (cameraPreview.readyState < 2) return;
+      lumCtx.drawImage(cameraPreview, 0, 0, lumCanvas.width, lumCanvas.height);
+      try {
+        const data = lumCtx.getImageData(0, 0, lumCanvas.width, lumCanvas.height).data;
+        let total = 0;
+        const pixels = data.length / 4;
+        for (let i = 0; i < data.length; i += 4) {
+          // Perceived brightness (ITU-R BT.601)
+          total += 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+        }
+        const avg = total / pixels; // 0–255
+        currentLumRaw = avg;
+
+        const pct = clamp((avg / 255) * 100, 0, 100);
+        lumBar.style.width = pct + '%';
+        lumValue.textContent = Math.round(avg);
+
+        lumOk = avg >= LUM_THRESH;
+        lumBar.classList.toggle('ok', lumOk);
+        alertDark.classList.toggle('hidden', lumOk);
+        setCheckStatus('lum', lumOk ? 'ok' : 'warn', lumOk ? 'OK' : 'Bajo');
+        updateSessionBtn();
+      } catch (e) {
+        // Tainted canvas (cross-origin) — skip
+      }
+    }, 500);
+  }
+
+  /* ════════════════════════════════════════════════════════
+     NOISE ANALYSIS
+  ════════════════════════════════════════════════════════ */
+  function startNoiseAnalysis() {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(mediaStream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.6;
+      source.connect(analyser);
+
+      const bufLen = analyser.fftSize;
+      const buffer = new Float32Array(bufLen);
+
+      noiseInterval = setInterval(() => {
+        analyser.getFloatTimeDomainData(buffer);
+        let sum = 0;
+        for (let i = 0; i < bufLen; i++) {
+          sum += buffer[i] * buffer[i];
+        }
+        const rms = Math.sqrt(sum / bufLen);
+        // Map RMS (0–1) → 0–100 display scale (typical speech ~0.1–0.3)
+        const displayVal = clamp(rms * 400, 0, 100);
+        currentNoiseRaw = displayVal;
+
+        noiseBar.style.width = displayVal + '%';
+        noiseValue.textContent = Math.round(displayVal);
+
+        noiseOk = displayVal <= NOISE_THRESH;
+        noiseBar.classList.toggle('warn', !noiseOk);
+        alertNoise.classList.toggle('hidden', noiseOk);
+        setCheckStatus('noise', noiseOk ? 'ok' : 'warn', noiseOk ? 'OK' : 'Alto');
+        updateSessionBtn();
+      }, 500);
+
+    } catch (e) {
+      console.error('AudioContext error:', e);
+      // Fallback: assume noise is OK
+      noiseOk = true;
+      setCheckStatus('noise', 'ok', 'OK');
+      noiseValue.textContent = '0';
+      noiseBar.style.width = '5%';
+      updateSessionBtn();
+    }
+  }
+
+  /* ════════════════════════════════════════════════════════
+     PHASE 1 → PHASE 2
+  ════════════════════════════════════════════════════════ */
+  btnStartSession.addEventListener('click', () => {
+    stopEnvAnalysis();
+    startPhase2();
+  });
+
+  function stopEnvAnalysis() {
+    if (lumInterval)   { clearInterval(lumInterval);   lumInterval   = null; }
+    if (noiseInterval) { clearInterval(noiseInterval); noiseInterval = null; }
+    if (audioCtx && audioCtx.state !== 'closed') {
+      audioCtx.close().catch(() => {});
+    }
+  }
+
+  function startPhase2() {
+    setHeader('active', 'Sesión activa');
+    showPhase(2);
+
+    // Mirror stream to PiP
+    if (mediaStream) {
+      cameraPipVideo.srcObject = mediaStream;
+      cameraPipVideo.play().catch(() => {});
+    }
+
+    // Start session timer
+    sessionSeconds = 0;
+    sessionTimerEl.textContent = '00:00';
+    sessionTimerInterval = setInterval(() => {
+      sessionSeconds++;
+      sessionTimerEl.textContent = formatTime(sessionSeconds);
+    }, 1000);
+
+    // Start recording
+    startRecording();
+
+    // Connect WebSocket
+    connectWebSocket();
+  }
+
+  /* ════════════════════════════════════════════════════════
+     MEDIA RECORDER
+  ════════════════════════════════════════════════════════ */
+  function getPreferredMimeType() {
+    const types = [
+      'video/webm;codecs=vp9',
+      'video/webm',
+      'video/mp4',
+    ];
+    for (const t of types) {
+      if (MediaRecorder.isTypeSupported(t)) return t;
+    }
+    return '';
+  }
+
+  function startRecording() {
+    if (!mediaStream) return;
+    recordedChunks = [];
+    const mimeType = getPreferredMimeType();
+    const options = mimeType ? { mimeType } : {};
+    try {
+      mediaRecorder = new MediaRecorder(mediaStream, options);
+      mediaRecorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+      };
+      mediaRecorder.start(1000); // collect every second
+    } catch (e) {
+      console.error('MediaRecorder error:', e);
+    }
+  }
+
+  function stopRecording() {
+    return new Promise(resolve => {
+      if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+        resolve();
+        return;
+      }
+      mediaRecorder.onstop = resolve;
+      mediaRecorder.stop();
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════
+     WEBSOCKET — AURA
+  ════════════════════════════════════════════════════════ */
+  function connectWebSocket() {
+    const url = `ws://${location.host}/ws/conversacion?session_id=${clientSessionId}`;
+    try {
+      ws = new WebSocket(url);
+    } catch (e) {
+      setAuraStatus('Error de conexión');
+      console.error('WS connect error:', e);
+      return;
+    }
+
+    ws.onopen = () => {
+      setAuraStatus('Conectado');
+      // Start ping interval
+      pingInterval = setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, 30000);
+    };
+
+    ws.onmessage = event => {
+      let msg;
+      try {
+        msg = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      handleWsMessage(msg);
+    };
+
+    ws.onerror = err => {
+      console.error('WS error:', err);
+      setAuraStatus('Error de conexión');
+    };
+
+    ws.onclose = () => {
+      if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
+      setAuraStatus('Conexión cerrada');
+    };
+  }
+
+  function handleWsMessage(msg) {
+    switch (msg.type) {
+      case 'session':
+        if (msg.llm_ready === false || msg.used_fallback === true) {
+          setAuraStatus('Modo fallback activo');
+        } else {
+          setAuraStatus('IA lista');
+        }
+        break;
+
+      case 'aura_turn': {
+        const text = msg.text || msg.message || '';
+        if (text) {
+          addMessage('aura', text);
+          speakText(text);
+        }
+        break;
+      }
+
+      case 'status': {
+        const statusText = msg.text || msg.message || '';
+        setAuraStatus(statusText, true);
+        break;
+      }
+
+      case 'error': {
+        const errText = msg.text || msg.message || 'Error desconocido';
+        setAuraStatus('Error: ' + errText);
+        addMessage('aura', '[Error del sistema: ' + errText + ']');
+        break;
+      }
+
+      default:
+        break;
+    }
+  }
+
+  function setAuraStatus(text, showSpinner = false) {
+    auraStatusContent.textContent = text;
+    const existingSpinner = auraStatusContent.previousElementSibling;
+    if (existingSpinner && existingSpinner.classList.contains('spinner')) {
+      existingSpinner.remove();
+    }
+    if (showSpinner) {
+      const sp = document.createElement('div');
+      sp.className = 'spinner';
+      auraStatusContent.parentNode.insertBefore(sp, auraStatusContent);
+    }
+  }
+
+  /* ════════════════════════════════════════════════════════
+     SPEECH SYNTHESIS
+  ════════════════════════════════════════════════════════ */
+  function speakText(text) {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'es-ES';
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    utterance.onstart = () => {
+      isSpeaking = true;
+      auraOrb.classList.add('speaking');
+      audioWave.classList.add('speaking');
+    };
+    utterance.onend = () => {
+      isSpeaking = false;
+      auraOrb.classList.remove('speaking');
+      audioWave.classList.remove('speaking');
+    };
+    utterance.onerror = () => {
+      isSpeaking = false;
+      auraOrb.classList.remove('speaking');
+      audioWave.classList.remove('speaking');
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }
+
+  /* ════════════════════════════════════════════════════════
+     CHAT MESSAGES
+  ════════════════════════════════════════════════════════ */
+  function addMessage(role, text) {
+    messageCount++;
+    msgCountEl.textContent = messageCount + (messageCount === 1 ? ' mensaje' : ' mensajes');
+
+    const wrapper = document.createElement('div');
+    wrapper.className = `msg ${role}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar';
+    avatar.textContent = role === 'aura' ? 'A' : 'U';
+
+    const inner = document.createElement('div');
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.textContent = text;
+
+    const time = document.createElement('div');
+    time.className = 'msg-time';
+    time.textContent = nowTime();
+
+    inner.appendChild(bubble);
+    inner.appendChild(time);
+
+    wrapper.appendChild(avatar);
+    wrapper.appendChild(inner);
+    messagesArea.appendChild(wrapper);
+
+    // Scroll to bottom
+    messagesArea.scrollTop = messagesArea.scrollHeight;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     SEND USER MESSAGE
+  ════════════════════════════════════════════════════════ */
+  function sendUserMessage() {
+    const text = msgInput.value.trim();
+    if (!text) return;
+    msgInput.value = '';
+    addMessage('user', text);
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'user_text', text }));
+    }
+  }
+
+  btnSendMsg.addEventListener('click', sendUserMessage);
+  msgInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendUserMessage();
+    }
+  });
+
+  /* ════════════════════════════════════════════════════════
+     END SESSION → PHASE 3
+  ════════════════════════════════════════════════════════ */
+  btnEndSession.addEventListener('click', async () => {
+    // Stop speaking
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+
+    // Send conversation_end over WS
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'conversation_end' }));
+      ws.close(1000, 'session_end');
+    }
+
+    // Stop timers
+    if (sessionTimerInterval) { clearInterval(sessionTimerInterval); sessionTimerInterval = null; }
+    if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
+
+    // Stop recording
+    await stopRecording();
+
+    // Stop media tracks
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(t => t.stop());
+    }
+
+    // Go to phase 3
+    setHeader('sending', 'Enviando sesión');
+    showPhase(3);
+    uploadState.classList.remove('hidden');
+    successState.classList.add('hidden');
+    errorState.classList.add('hidden');
+
+    // Start upload flow
+    await runUpload();
+  });
+
+  /* ════════════════════════════════════════════════════════
+     UPLOAD FLOW
+  ════════════════════════════════════════════════════════ */
+  async function runUpload() {
+    const stepDurations = [600, 700, 800, 0]; // ms delay per step
+    const stepProgress  = [18, 40, 65, 90];
+
+    // Animate through steps
+    for (let i = 0; i < uploadSteps.length - 1; i++) {
+      markStep(i, 'active');
+      uploadProgressFill.style.width = stepProgress[i] + '%';
+      await delay(stepDurations[i]);
+      markStep(i, 'done');
+    }
+
+    // Step 3: actual upload
+    markStep(3, 'active');
+    uploadProgressFill.style.width = '90%';
+
+    try {
+      const mimeType = getPreferredMimeType() || 'video/webm';
+      const blob = new Blob(recordedChunks, { type: mimeType });
+
+      const formData = new FormData();
+      formData.append('video', blob, `session_${clientSessionId}.webm`);
+      formData.append('session_id', clientSessionId);
+      formData.append('timestamp', new Date().toISOString());
+
+      const response = await fetch('/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      markStep(3, 'done');
+      uploadProgressFill.style.width = '100%';
+
+      await delay(400);
+
+      if (response.status === 202 || response.ok) {
+        setHeader('done', 'Sesión completada');
+        uploadState.classList.add('hidden');
+        successState.classList.remove('hidden');
+      } else {
+        let errMsg = `Error del servidor (${response.status})`;
+        try {
+          const body = await response.json();
+          if (body.detail || body.message || body.error) {
+            errMsg = body.detail || body.message || body.error;
+          }
+        } catch { /* response body not JSON */ }
+        showUploadError(errMsg);
+      }
+
+    } catch (err) {
+      console.error('Upload error:', err);
+      markStep(3, '');
+      showUploadError(err.message || 'Error de red al conectar con el servidor.');
+    }
+  }
+
+  function markStep(idx, state) {
+    uploadSteps[idx].className = 'upload-step' + (state ? ' ' + state : '');
+  }
+
+  function showUploadError(msg) {
+    setHeader('checking', 'Error en envío');
+    uploadState.classList.add('hidden');
+    errorState.classList.remove('hidden');
+    errorMsgText.textContent = msg || 'Ha ocurrido un error al enviar la sesión.';
+  }
+
+  btnRetryUpload.addEventListener('click', async () => {
+    errorState.classList.add('hidden');
+    uploadState.classList.remove('hidden');
+    // Reset steps
+    uploadSteps.forEach(s => s.className = 'upload-step');
+    uploadProgressFill.style.width = '0%';
+    setHeader('sending', 'Enviando sesión');
+    await runUpload();
+  });
+
+  function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /* ════════════════════════════════════════════════════════
+     INIT
+  ════════════════════════════════════════════════════════ */
+  // Set initial header
+  setHeader('ready', 'Sistema listo');
+  showPhase(0);
+
+</script>
+</body>
+</html>

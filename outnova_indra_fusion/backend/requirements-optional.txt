@@ -1,0 +1,13 @@
+# OutNova Indra Fusion — Dependencias opcionales
+# ADVERTENCIA: Puede tardar y generar conflictos.
+# Instalar solo si se necesita análisis DeepFace.
+# Uso: python setup_optional_deepface.bat
+
+deepface>=0.0.86
+tensorflow-cpu>=2.15.0
+tf-keras
+mtcnn
+retina-face
+
+# TTS opcional (no requerido, el sistema usa Web Speech API)
+# pyttsx3
