@@ -216,12 +216,12 @@ with col_metrics:
     st.subheader("Sub-scores")
     m1, m2 = st.columns(2)
     with m1:
-        st.metric("Voice Behavioral", f"{s.get('voice_behavioral_risk_score', 0):.1f}")
-        st.metric("Audio Quality", f"{s.get('audio_quality_risk_score', 0):.1f}")
-        st.metric("Coerción score", f"{s.get('coercion_score', 0):.2f}")
+        st.metric("Voice Behavioral", f"{(s.get('voice_behavioral_risk_score') or 0):.1f}")
+        st.metric("Audio Quality", f"{(s.get('audio_quality_risk_score') or 0):.1f}")
+        st.metric("Coerción score", f"{(s.get('coercion_score') or 0):.2f}")
     with m2:
-        st.metric("Liveness & Spoof", f"{s.get('liveness_spoof_risk_score', 0):.1f}")
-        st.metric("Multimodal", f"{s.get('multimodal_consistency_risk_score', 0):.1f}")
+        st.metric("Liveness & Spoof", f"{(s.get('liveness_spoof_risk_score') or 0):.1f}")
+        st.metric("Multimodal", f"{(s.get('multimodal_consistency_risk_score') or 0):.1f}")
         st.metric("Quality conf.", f"{(s.get('quality_confidence') or 0):.0%}")
 
 st.divider()
