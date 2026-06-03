@@ -328,7 +328,7 @@ with tab_video:
     else:
         st.success(f"✅ {s.get('deepfake_reason', 'Sin indicadores de deepfake.')}")
 
-    st.metric("Duración video", f"{s.get('video_duration_sec', 0):.1f}s")
+    st.metric("Duración video", f"{(s.get('video_duration_sec') or 0):.1f}s")
 
 # ── AUDIO TAB ──────────────────────────────────────────────────────────────
 with tab_audio:
@@ -344,12 +344,12 @@ with tab_audio:
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Quality conf.", f"{(s.get('quality_confidence') or 0):.0%}")
     c2.metric("Silence ratio", f"{(s.get('silence_ratio') or 0):.0%}")
-    c3.metric("Speech rate", f"{s.get('speech_rate_wpm', 0):.0f} wpm")
-    c4.metric("Pitch CV", f"{s.get('pitch_cv', 0):.3f}")
+    c3.metric("Speech rate", f"{(s.get('speech_rate_wpm') or 0):.0f} wpm")
+    c4.metric("Pitch CV", f"{(s.get('pitch_cv') or 0):.3f}")
 
     c5, c6 = st.columns(2)
-    c5.metric("Energy CV", f"{s.get('energy_cv', 0):.3f}")
-    c6.metric("First latency", f"{s.get('first_voice_latency', 0):.1f}s")
+    c5.metric("Energy CV", f"{(s.get('energy_cv') or 0):.3f}")
+    c6.metric("First latency", f"{(s.get('first_voice_latency') or 0):.1f}s")
 
     # Voice emotion
     ve = s.get("voice_emotion") or {}
@@ -395,7 +395,7 @@ with tab_coercion:
         )
     else:
         st.success("✅ Sin indicadores de coerción en transcripción.")
-        st.metric("Coerción score", f"{s.get('coercion_score', 0):.3f}")
+        st.metric("Coerción score", f"{(s.get('coercion_score') or 0):.3f}")
 
 # ── AURA TAB ───────────────────────────────────────────────────────────────
 with tab_aura:
