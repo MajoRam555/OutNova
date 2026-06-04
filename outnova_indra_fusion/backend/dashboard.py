@@ -3,6 +3,7 @@ OutNova Indra Fusion — Dashboard Streamlit para analistas
 """
 import json
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -398,10 +399,21 @@ tv, ta, tco, tau, tdf, traw = st.tabs(["🎥 Video/Liveness","🎙 Audio","⚠�
 
 # ── VIDEO ──────────────────────────────────────────────────────────────────────
 with tv:
+    # ── Video player ──────────────────────────────────────────────────────────
+    video_path = s.get("video_path") or ""
+    st.markdown('<div class="on-card-title" style="margin-bottom:10px;">Grabación de sesión</div>', unsafe_allow_html=True)
+    if video_path and Path(video_path).exists():
+        size_mb = Path(video_path).stat().st_size / (1024 * 1024)
+        st.video(video_path)
+        st.caption(f"Archivo: {Path(video_path).name} · {size_mb:.1f} MB · {(s.get('video_duration_sec') or 0):.1f}s")
+    else:
+        st.markdown('<p style="color:#9CA3AF;font-size:13px;margin-bottom:16px;">Grabación no disponible o en proceso.</p>', unsafe_allow_html=True)
+
+    st.divider()
     blink_rate = (s.get("blink_rate_per_min") or 0)
     bk_cls = "c-ok" if 8<=blink_rate<=25 else "c-mid" if blink_rate>0 else "c-non"
 
-    st.markdown('<div class="on-card"><div class="on-card-title">Liveness & Parpadeos</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="on-card-title" style="margin-bottom:10px;">Liveness & Parpadeos</div>', unsafe_allow_html=True)
     vc1,vc2,vc3,vc4,vc5 = st.columns(5)
     with vc1: st.markdown(mc("Total parpadeos", str(s.get("total_blinks") or 0)), unsafe_allow_html=True)
     with vc2: st.markdown(mc("Rate / min", f"{blink_rate:.1f}", "normal 8–25", bk_cls), unsafe_allow_html=True)

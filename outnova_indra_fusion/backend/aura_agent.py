@@ -14,28 +14,44 @@ from config import AURA_LLM_FALLBACK, AURA_LLM_MODEL
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
-    "Eres AURA, agente conversacional de verificación biométrica y riesgo financiero. "
-    "Habla en español, de forma profesional, breve y empática. "
-    "Tu objetivo es guiar una validación de identidad, provocar respuestas habladas naturales, "
-    "observar coherencia y detectar señales de coerción o evasión. "
-    "No excedas 20 palabras por turno. Haz una sola pregunta por turno. "
-    "No repitas preguntas. Alterna preguntas de entorno, atención, consentimiento y contexto."
+    "Eres AURA, agente conversacional de verificación biométrica. "
+    "Habla en español con un tono cálido, profesional y natural — como un asesor de confianza, no como un sistema automático. "
+    "Tu misión: guiar al usuario por una entrevista de verificación de identidad, generando respuestas habladas espontáneas "
+    "y detectando señales de coerción, evasión o incoherencia. "
+    "Estructura de cada turno: (1) reconoce brevemente lo que dijo el usuario con una frase natural y empática, "
+    "(2) haz exactamente UNA pregunta relevante. Máximo 2-3 oraciones en total. "
+    "Varía el tono: a veces curioso, a veces reflexivo, siempre humano. "
+    "No uses frases robóticas ni repetitivas. Adapta el contenido según las respuestas anteriores. "
+    "No repitas preguntas ya hechas. Alterna entre estos temas: "
+    "entorno físico actual, consentimiento libre, atención cognitiva, identidad personal y bienestar emocional."
 )
 
-# Fallback question bank
+# Acknowledgment phrases — picked by turn index (deterministic, no random)
+_ACKS = [
+    "Gracias, lo tomo en cuenta.",
+    "Entendido, perfecto.",
+    "Bien, te escucho.",
+    "De acuerdo, gracias.",
+    "Muy bien.",
+    "Interesante, gracias por compartirlo.",
+    "Perfecto, anotado.",
+    "Claro, lo entiendo.",
+]
+
+# Fallback questions — phrased naturally, with soft connectors
 FALLBACK_TURNS = [
-    "Hola, soy AURA. ¿Puedes confirmar que realizas esta verificación de forma voluntaria?",
-    "¿Puedes describirme brevemente qué hay detrás de ti en este momento?",
-    "Para confirmar tu atención, ¿podrías deletrear la palabra MESA al revés?",
+    "Hola, soy AURA. Voy a acompañarte en este proceso de verificación. ¿Puedes confirmarme que estás haciendo esto de forma voluntaria?",
+    "¿Puedes describirme brevemente el lugar donde te encuentras ahora mismo?",
+    "Vamos a hacer un pequeño ejercicio de atención: ¿podrías deletrear la palabra MESA al revés?",
     "¿Qué objeto tienes más cerca de ti en este momento?",
-    "¿Qué hiciste antes de comenzar esta verificación?",
-    "¿Hay alguien en la habitación indicándote qué responder?",
-    "¿Puedes mover ligeramente la cabeza y decirme cómo te sientes hoy?",
-    "¿Confirmas que la operación que estás realizando es tu decisión personal?",
-    "¿Cuál es tu nombre completo para confirmar identidad?",
-    "¿Puedes decirme la fecha de hoy con tus propias palabras?",
-    "¿Estás en un lugar seguro y privado para continuar?",
-    "Gracias por tu tiempo. ¿Tienes alguna duda sobre este proceso?",
+    "¿Qué estabas haciendo justo antes de comenzar esta verificación?",
+    "¿Hay alguien más contigo en la habitación en este momento?",
+    "¿Puedes mover ligeramente la cabeza hacia los lados y decirme cómo te sientes hoy?",
+    "¿Puedes confirmarme que esta decisión la estás tomando de forma completamente personal, sin ninguna presión externa?",
+    "¿Puedes decirme tu nombre completo?",
+    "¿Puedes decirme cuál es la fecha de hoy con tus propias palabras?",
+    "¿Te encuentras en un lugar tranquilo y privado en este momento?",
+    "Estamos llegando al final del proceso. ¿Tienes alguna pregunta sobre esta verificación?",
 ]
 
 
@@ -159,20 +175,21 @@ class AuraEngine:
             with torch.no_grad():
                 output = self.llm.generate(
                     input_ids,
-                    max_new_tokens=60,
+                    max_new_tokens=80,
                     do_sample=True,
-                    temperature=0.7,
-                    top_p=0.9,
+                    temperature=0.75,
+                    top_p=0.92,
+                    repetition_penalty=1.1,
                     pad_token_id=self.tokenizer.eos_token_id,
                 )
 
             generated = output[0][input_ids.shape[-1]:]
             text = self.tokenizer.decode(generated, skip_special_tokens=True).strip()
 
-            # Truncate to 20 words
+            # Cap at 50 words (allows acknowledgment + one question naturally)
             words = text.split()
-            if len(words) > 20:
-                text = " ".join(words[:20]) + "..."
+            if len(words) > 50:
+                text = " ".join(words[:50]) + "."
 
             return text if text else self.fallback_reply(session, session.turn_count, user_text)
 
@@ -181,9 +198,13 @@ class AuraEngine:
             return self.fallback_reply(session, session.turn_count, user_text)
 
     def fallback_reply(self, session: AuraChatSession, turn: int, user_text: str = "") -> str:
-        """Rule-based fallback. Never raises."""
+        """Rule-based fallback. Adds acknowledgment for turns > 0. Never raises."""
         idx = turn % len(FALLBACK_TURNS)
-        return FALLBACK_TURNS[idx]
+        question = FALLBACK_TURNS[idx]
+        if turn > 0 and user_text and user_text.strip():
+            ack = _ACKS[turn % len(_ACKS)]
+            return f"{ack} {question}"
+        return question
 
     def generate_reply(self, session: AuraChatSession, user_text: str) -> str:
         """
