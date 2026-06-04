@@ -632,116 +632,71 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 24px 16px;
+      padding: 20px 16px 16px;
       text-align: center;
       box-shadow: var(--shadow-sm);
     }
 
-    /* ── Orb wrap — receives state classes ── */
-    .aura-orb-wrap {
-      width: 100px;
-      height: 100px;
-      margin: 0 auto 20px;
+    /* Canvas stage */
+    .aura-bubble-stage {
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
+      min-height: 220px;
+      margin-bottom: 4px;
     }
 
-    .aura-ring {
-      position: absolute;
-      border-radius: 50%;
-      border: 2px solid rgba(37,99,235,0.12);
-      pointer-events: none;
-    }
-    .aura-ring-1 { width: 100%; height: 100%; }
-    .aura-ring-2 { width: 136%; height: 136%; }
-
-    .aura-orb-core {
-      width: 72px;
-      height: 72px;
-      border-radius: 50%;
-      background: radial-gradient(circle at 38% 38%, #60A5FA, var(--primary), var(--primary-dark));
-      position: relative;
-      z-index: 2;
-      box-shadow: 0 4px 20px rgba(37,99,235,0.25);
+    .aura-bubble {
+      width: min(220px, 65vw);
+      height: min(220px, 65vw);
+      display: block;
+      filter: drop-shadow(0 0 22px rgba(37, 99, 235, 0.14));
+      transition: filter 0.5s ease;
     }
 
-    .aura-orb-inner {
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.12);
+    .aura-panel.aura-listening .aura-bubble,
+    .aura-panel.aura-speaking  .aura-bubble {
+      filter: drop-shadow(0 0 36px rgba(37, 99, 235, 0.28));
     }
 
-    /* ── STATE: idle — slow breathe ── */
-    .aura-orb-wrap.aura-idle .aura-orb-core {
-      animation: auraPulse 3s ease-in-out infinite;
-    }
-    @keyframes auraPulse {
-      0%, 100% { box-shadow: 0 4px 20px rgba(37,99,235,0.2), 0 0 0 0 rgba(37,99,235,0.07); }
-      50%       { box-shadow: 0 4px 26px rgba(37,99,235,0.35), 0 0 0 8px rgba(37,99,235,0.04); }
-    }
-
-    /* ── STATE: listening — sonar ripple rings ── */
-    .aura-orb-wrap.aura-listening .aura-ring-1 {
-      animation: auraRipple 1.5s ease-out infinite;
-      border-color: rgba(37,99,235,0.45);
-    }
-    .aura-orb-wrap.aura-listening .aura-ring-2 {
-      animation: auraRipple 1.5s ease-out infinite 0.55s;
-      border-color: rgba(37,99,235,0.3);
-    }
-    .aura-orb-wrap.aura-listening .aura-orb-core {
-      animation: auraListenBreath 0.9s ease-in-out infinite alternate;
-    }
-    @keyframes auraRipple {
-      0%   { transform: scale(1);    opacity: 0.75; }
-      100% { transform: scale(1.55); opacity: 0; }
-    }
-    @keyframes auraListenBreath {
-      from { transform: scale(0.95); }
-      to   { transform: scale(1.05); }
+    /* Wave bars */
+    .aura-waves {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      height: 22px;
+      margin-bottom: 8px;
     }
 
-    /* ── STATE: thinking — spinning rings ── */
-    .aura-orb-wrap.aura-thinking .aura-ring-1 {
-      border-color: transparent;
-      border-top-color: var(--primary);
-      animation: auraSpin 0.9s linear infinite;
-    }
-    .aura-orb-wrap.aura-thinking .aura-ring-2 {
-      border-color: transparent;
-      border-bottom-color: rgba(37,99,235,0.28);
-      animation: auraSpin 1.6s linear infinite reverse;
-    }
-    .aura-orb-wrap.aura-thinking .aura-orb-core {
-      opacity: 0.8;
-      box-shadow: 0 4px 14px rgba(37,99,235,0.18);
-    }
-    @keyframes auraSpin {
-      to { transform: rotate(360deg); }
+    .aura-wave {
+      width: 3px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--primary);
+      opacity: 0.25;
+      transition: opacity 0.3s ease;
     }
 
-    /* ── STATE: speaking — bounce + glow ── */
-    .aura-orb-wrap.aura-speaking .aura-orb-core {
-      animation: auraSpeak 0.55s ease-in-out infinite alternate;
+    .aura-panel.aura-listening .aura-wave,
+    .aura-panel.aura-speaking  .aura-wave {
+      opacity: 1;
+      animation: auraWaveBar 0.65s ease-in-out infinite;
     }
-    .aura-orb-wrap.aura-speaking .aura-ring-1 {
-      border-color: rgba(37,99,235,0.22);
-      animation: auraGlow 0.55s ease-in-out infinite alternate;
-    }
-    .aura-orb-wrap.aura-speaking .aura-ring-2 {
-      border-color: rgba(37,99,235,0.12);
-      animation: auraGlow 0.55s ease-in-out infinite alternate 0.18s;
-    }
-    @keyframes auraSpeak {
-      from { transform: scale(1);    box-shadow: 0 4px 20px rgba(37,99,235,0.25), 0 0 0 0 rgba(37,99,235,0.08); }
-      to   { transform: scale(1.09); box-shadow: 0 6px 30px rgba(37,99,235,0.45), 0 0 0 10px rgba(37,99,235,0.05); }
-    }
-    @keyframes auraGlow {
-      from { transform: scale(1);    opacity: 0.45; }
-      to   { transform: scale(1.07); opacity: 1; }
+
+    .aura-panel.aura-listening .aura-wave:nth-child(2),
+    .aura-panel.aura-speaking  .aura-wave:nth-child(2) { animation-delay: 0.08s; }
+    .aura-panel.aura-listening .aura-wave:nth-child(3),
+    .aura-panel.aura-speaking  .aura-wave:nth-child(3) { animation-delay: 0.16s; }
+    .aura-panel.aura-listening .aura-wave:nth-child(4),
+    .aura-panel.aura-speaking  .aura-wave:nth-child(4) { animation-delay: 0.24s; }
+    .aura-panel.aura-listening .aura-wave:nth-child(5),
+    .aura-panel.aura-speaking  .aura-wave:nth-child(5) { animation-delay: 0.32s; }
+
+    @keyframes auraWaveBar {
+      0%, 100% { height: 5px; }
+      50%       { height: 20px; }
     }
 
     .aura-name {
@@ -754,79 +709,25 @@
     .aura-role {
       font-size: 11px;
       color: var(--text-secondary);
-      margin-bottom: 16px;
-    }
-
-    .audio-wave {
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 3px;
-      height: 28px;
-      margin-bottom: 16px;
-    }
-
-    .wave-bar {
-      width: 4px;
-      background: var(--primary);
-      border-radius: 2px;
-      animation: wave-idle 1.4s ease-in-out infinite;
-      min-height: 3px;
-    }
-
-    .wave-bar:nth-child(1) { animation-delay: 0s; }
-    .wave-bar:nth-child(2) { animation-delay: 0.15s; }
-    .wave-bar:nth-child(3) { animation-delay: 0.3s; }
-    .wave-bar:nth-child(4) { animation-delay: 0.15s; }
-    .wave-bar:nth-child(5) { animation-delay: 0s; }
-
-    @keyframes wave-idle {
-      0%, 100% { height: 5px; opacity: 0.4; }
-      50% { height: 20px; opacity: 1; }
-    }
-
-    .audio-wave.speaking .wave-bar {
-      animation: wave-speak 0.4s ease-in-out infinite alternate;
-    }
-
-    .audio-wave.speaking .wave-bar:nth-child(1) { animation-delay: 0s; }
-    .audio-wave.speaking .wave-bar:nth-child(2) { animation-delay: 0.08s; }
-    .audio-wave.speaking .wave-bar:nth-child(3) { animation-delay: 0.16s; }
-    .audio-wave.speaking .wave-bar:nth-child(4) { animation-delay: 0.08s; }
-    .audio-wave.speaking .wave-bar:nth-child(5) { animation-delay: 0s; }
-
-    @keyframes wave-speak {
-      from { height: 4px; }
-      to   { height: 26px; }
-    }
-
-    .audio-wave.listening .wave-bar {
-      animation: wave-listen 0.65s ease-in-out infinite alternate;
-    }
-    .audio-wave.listening .wave-bar:nth-child(1) { animation-delay: 0s; }
-    .audio-wave.listening .wave-bar:nth-child(2) { animation-delay: 0.13s; }
-    .audio-wave.listening .wave-bar:nth-child(3) { animation-delay: 0.26s; }
-    .audio-wave.listening .wave-bar:nth-child(4) { animation-delay: 0.13s; }
-    .audio-wave.listening .wave-bar:nth-child(5) { animation-delay: 0s; }
-    @keyframes wave-listen {
-      from { height: 4px;  opacity: 0.5; }
-      to   { height: 14px; opacity: 0.9; }
-    }
-
-    .audio-wave.thinking .wave-bar {
-      animation: none;
-      height: 3px;
-      opacity: 0.2;
+      margin-bottom: 8px;
     }
 
     .aura-status-text {
       font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
       color: var(--text-secondary);
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
+      min-height: 18px;
+      transition: color 0.3s ease;
     }
+
+    .aura-panel.aura-listening .aura-status-text { color: var(--success); }
+    .aura-panel.aura-thinking  .aura-status-text,
+    .aura-panel.aura-speaking  .aura-status-text { color: var(--primary); }
 
     .spinner {
       display: inline-block;
@@ -1436,25 +1337,21 @@
         <div class="phase-2-body">
 
           <!-- AURA -->
-          <div class="aura-panel">
-            <div class="aura-orb-wrap aura-idle" id="aura-orb">
-              <div class="aura-ring aura-ring-1"></div>
-              <div class="aura-ring aura-ring-2"></div>
-              <div class="aura-orb-core">
-                <div class="aura-orb-inner"></div>
-              </div>
+          <div class="aura-panel aura-idle" id="aura-orb">
+            <div class="aura-bubble-stage">
+              <canvas id="aura-canvas" class="aura-bubble" width="400" height="400"></canvas>
+            </div>
+            <div class="aura-waves" id="audio-wave">
+              <div class="aura-wave"></div>
+              <div class="aura-wave"></div>
+              <div class="aura-wave"></div>
+              <div class="aura-wave"></div>
+              <div class="aura-wave"></div>
             </div>
             <div class="aura-name">Agente Nova (AURA)</div>
             <div class="aura-role">Agente de verificación biométrica</div>
-            <div class="audio-wave" id="audio-wave">
-              <div class="wave-bar"></div>
-              <div class="wave-bar"></div>
-              <div class="wave-bar"></div>
-              <div class="wave-bar"></div>
-              <div class="wave-bar"></div>
-            </div>
             <div class="aura-status-text" id="aura-status-text">
-              <span id="aura-status-content">En espera...</span>
+              <span id="aura-status-content">AURA lista</span>
             </div>
           </div>
 
@@ -1698,6 +1595,10 @@
   let currentLumRaw    = 0;
   let currentNoiseRaw  = 0;
   let isSpeaking       = false;
+  let auraState        = 'idle';
+  let pttAudioCtx      = null;
+  let pttAnalyser      = null;
+  let pttFreqData      = null;
 
   // PTT state
   let pttRecorder      = null;
@@ -1962,14 +1863,15 @@
     try {
       ws = new WebSocket(url);
     } catch (e) {
+      setAuraState('idle');
       setAuraStatus('Error de conexión');
       console.error('WS connect error:', e);
       return;
     }
 
     ws.onopen = () => {
-      setAuraStatus('Conectado');
       setAuraState('idle');
+      setAuraStatus('Conectado');
       // Start ping interval
       pingInterval = setInterval(() => {
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -1990,26 +1892,26 @@
 
     ws.onerror = err => {
       console.error('WS error:', err);
-      setAuraStatus('Error de conexión');
       setAuraState('idle');
+      setAuraStatus('Error de conexión');
     };
 
     ws.onclose = () => {
       if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
-      setAuraStatus('Conexión cerrada');
       setAuraState('idle');
+      setAuraStatus('Conexión cerrada');
     };
   }
 
   function handleWsMessage(msg) {
     switch (msg.type) {
       case 'session':
+        setAuraState('idle');
         if (msg.llm_ready === false || msg.used_fallback === true) {
           setAuraStatus('Modo fallback activo');
         } else {
           setAuraStatus('IA lista');
         }
-        setAuraState('idle');
         break;
 
       case 'aura_turn': {
@@ -2022,16 +1924,16 @@
       }
 
       case 'status': {
+        setAuraState('thinking');
         const statusText = msg.text || msg.message || '';
         setAuraStatus(statusText, true);
-        setAuraState('thinking');
         break;
       }
 
       case 'error': {
+        setAuraState('idle');
         const errText = msg.text || msg.message || 'Error desconocido';
         setAuraStatus('Error: ' + errText);
-        setAuraState('idle');
         addMessage('aura', '[Error del sistema: ' + errText + ']');
         break;
       }
@@ -2055,13 +1957,22 @@
   }
 
   const _AURA_STATES = ['aura-idle','aura-listening','aura-thinking','aura-speaking'];
+  const _AURA_LABELS = {
+    idle:      'AURA lista',
+    listening: 'Escuchando...',
+    thinking:  'AURA está procesando...',
+    speaking:  'AURA respondiendo',
+  };
   function setAuraState(state) {
+    const s = state || 'idle';
+    auraState = s;
     _AURA_STATES.forEach(c => auraOrb.classList.remove(c));
-    auraOrb.classList.add('aura-' + (state || 'idle'));
-    audioWave.classList.remove('listening', 'thinking', 'speaking');
-    if (state === 'listening') audioWave.classList.add('listening');
-    else if (state === 'thinking') audioWave.classList.add('thinking');
-    else if (state === 'speaking') audioWave.classList.add('speaking');
+    auraOrb.classList.add('aura-' + s);
+    if (auraStatusContent) {
+      auraStatusContent.textContent = _AURA_LABELS[s] || 'AURA lista';
+      const sp = auraStatusContent.previousElementSibling;
+      if (sp && sp.classList.contains('spinner')) sp.remove();
+    }
   }
 
   /* ════════════════════════════════════════════════════════
@@ -2183,11 +2094,23 @@
     pttRecorder.onstop = pttUploadAndSend;
     pttRecorder.start();
 
+    // Visual-level analyser for the canvas bubble
+    try {
+      pttAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const pttSrc = pttAudioCtx.createMediaStreamSource(audioStream);
+      pttAnalyser = pttAudioCtx.createAnalyser();
+      pttAnalyser.fftSize = 256;
+      pttAnalyser.smoothingTimeConstant = 0.5;
+      pttSrc.connect(pttAnalyser);
+      pttFreqData = new Uint8Array(pttAnalyser.frequencyBinCount);
+    } catch (e) {
+      pttAudioCtx = null; pttAnalyser = null; pttFreqData = null;
+    }
+
     pttActive = true;
     btnPtt.classList.add('recording');
     pttHint.textContent = 'Grabando... suelta para enviar';
     pttHint.classList.add('active');
-    setAuraStatus('Grabando voz PTT...');
     setAuraState('listening');
   }
 
@@ -2198,6 +2121,12 @@
     pttHint.textContent = 'Procesando...';
     pttHint.classList.remove('active');
     setAuraState('thinking');
+
+    // Tear down visual-level analyser
+    if (pttAudioCtx) {
+      pttAudioCtx.close().catch(() => {});
+      pttAudioCtx = null; pttAnalyser = null; pttFreqData = null;
+    }
 
     if (pttRecorder.state !== 'inactive') {
       pttRecorder.stop();
@@ -2232,8 +2161,8 @@
       const text = (data.transcription || '').trim();
 
       if (!text) {
-        setAuraStatus('No se detectó voz. Intenta de nuevo.');
         setAuraState('idle');
+        setAuraStatus('No se detectó voz. Intenta de nuevo.');
         pttHint.textContent = 'Mantén el micrófono para hablar';
         return;
       }
@@ -2246,8 +2175,8 @@
 
     } catch (err) {
       console.error('PTT transcription error:', err);
-      setAuraStatus('Error en PTT: ' + err.message);
       setAuraState('idle');
+      setAuraStatus('Error en PTT: ' + err.message);
     } finally {
       pttHint.textContent = 'Mantén el micrófono para hablar';
     }
@@ -2383,6 +2312,86 @@
   function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
+
+  /* ════════════════════════════════════════════════════════
+     AURA CANVAS BUBBLE
+  ════════════════════════════════════════════════════════ */
+  (function () {
+    const canvas = document.getElementById('aura-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let idlePhase = 0;
+
+    function getPttLevel() {
+      if (!pttAnalyser || !pttFreqData) return 0;
+      pttAnalyser.getByteFrequencyData(pttFreqData);
+      let sum = 0;
+      for (let i = 0; i < pttFreqData.length; i++) sum += pttFreqData[i];
+      return Math.min(1, (sum / pttFreqData.length) / 80);
+    }
+
+    function draw(level) {
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const cx = W / 2, cy = H / 2;
+      const baseR = Math.min(W, H) * 0.28;
+      const pulse = (pttActive || isSpeaking)
+        ? level * 28
+        : Math.sin(idlePhase) * 6;
+      const r = baseR + pulse;
+
+      const grad = ctx.createRadialGradient(
+        cx - r * 0.18, cy - r * 0.18, r * 0.08,
+        cx, cy, r * 1.25
+      );
+      grad.addColorStop(0,    'rgba(255, 255, 255, 0.98)');
+      grad.addColorStop(0.30, 'rgba(239, 246, 255, 0.92)');
+      grad.addColorStop(0.58, 'rgba(96, 165, 250, 0.52)');
+      grad.addColorStop(0.82, 'rgba(37, 99, 235, 0.22)');
+      grad.addColorStop(1,    'rgba(37, 99, 235, 0)');
+
+      ctx.beginPath();
+      const N = 64;
+      for (let i = 0; i <= N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        const w =
+          Math.sin(a * 3 + idlePhase * 2) * (4 + level * 12) +
+          Math.cos(a * 5 - idlePhase)     * (3 + level * 8);
+        const rr = r + w;
+        const x = cx + Math.cos(a) * rr;
+        const y = cy + Math.sin(a) * rr;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(37, 99, 235, ' + Math.min(0.64, 0.22 + level * 0.42).toFixed(2) + ')';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      if (pttActive || isSpeaking) idlePhase += 0.08;
+      else if (auraState === 'thinking') idlePhase += 0.05;
+      else idlePhase += 0.025;
+    }
+
+    function loop() {
+      let level = 0;
+      if (pttActive) {
+        level = getPttLevel();
+      } else if (isSpeaking) {
+        const t = Date.now();
+        level = 0.35 + Math.sin(t / 90) * 0.22 + (Math.sin(t / 37) * 0.08);
+        level = Math.max(0, Math.min(1, level));
+      } else if (auraState === 'thinking') {
+        level = 0.35 + Math.sin(Date.now() / 180) * 0.12;
+      }
+      draw(level);
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  })();
 
   /* ════════════════════════════════════════════════════════
      INIT
