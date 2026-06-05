@@ -81,15 +81,57 @@ def _run_analysis_internal(db, session_id: int, video_path: str, client_session_
         logger.warning(f"[PIPELINE] Coerción error: {e}")
         coercion_result = {"coercion_detected": False, "coercion_score": 0.0, "matched_phrases": []}
 
-    # ── STEP 4: Scoring ────────────────────────────────────────────────────
-    logger.info("[PIPELINE] Paso 4: Calculando score...")
+    # ── STEP 3b: Fraud Triangle ────────────────────────────────────────────
+    logger.info("[PIPELINE] Paso 3b: Triángulo del fraude...")
+    fraud_result = {}
+    try:
+        from fraud_triangle import analyze_fraud_triangle
+        aura_transcript = json.loads(record.aura_transcript or "[]")
+        fraud_result = analyze_fraud_triangle(
+            text=audio_result.get("transcription", ""),
+            aura_transcript=aura_transcript,
+        )
+        logger.info(f"[PIPELINE] Fraude risk={fraud_result.get('fraud_triangle_risk', 0):.1f}")
+    except Exception as e:
+        logger.warning(f"[PIPELINE] Fraud triangle error: {e}")
+        fraud_result = {"fraud_triangle_risk": 0.0, "pressure_score": 0.0,
+                        "opportunity_score": 0.0, "rationalization_score": 0.0,
+                        "matched_signals": {}, "explanation": "", "confidence": 0.1}
+
+    # ── STEP 3c: Narrative Coherence ───────────────────────────────────────
+    logger.info("[PIPELINE] Paso 3c: Coherencia narrativa...")
+    narrative_result = {}
+    try:
+        from narrative_analysis import analyze_narrative_coherence
+        aura_transcript = json.loads(record.aura_transcript or "[]")
+        narrative_result = analyze_narrative_coherence(
+            aura_transcript=aura_transcript,
+            transcription=audio_result.get("transcription", ""),
+        )
+        logger.info(f"[PIPELINE] Narrativa risk={narrative_result.get('narrative_coherence_risk', 0):.1f}")
+    except Exception as e:
+        logger.warning(f"[PIPELINE] Narrative analysis error: {e}")
+        narrative_result = {"narrative_coherence_risk": 0.0, "narrative_consistency_score": 0.0,
+                            "contradiction_score": 0.0, "evasion_score": 0.0,
+                            "incompleteness_score": 0.0, "matched_signals": {},
+                            "explanation": "", "confidence": 0.1}
+
+    # ── STEP 4: Scoring (emotional-contextual v2) ──────────────────────────
+    logger.info("[PIPELINE] Paso 4: Calculando score emocional-contextual v2...")
+    liveness_sub = {}
+    audio_quality_sub = {}
+    multimodal_sub = {}
+    voice_behavioral_sub = {}
     try:
         from scoring import (
             compute_liveness_spoof_score,
             compute_audio_quality_score,
             compute_multimodal_score,
-            compute_deepface_emotion_score,
-            calculate_final_score,
+            compute_emotional_ai_risk,
+            compute_behavioral_baseline_risk,
+            compute_identity_liveness_risk,
+            compute_quality_risk,
+            calculate_contextual_risk_score,
         )
 
         voice_behavioral_sub = audio_result.get("voice_behavioral_sub_scores", {})
@@ -121,23 +163,65 @@ def _run_analysis_internal(db, session_id: int, video_path: str, client_session_
             duration_sec=video_result.get("video_duration_sec", 0.0),
         )
 
-        deepface_emotion_score = compute_deepface_emotion_score(
+        # Emotional AI risk
+        try:
+            import json as _json
+            voice_emotion = _json.loads(audio_result.get("voice_emotion") or "{}")
+        except Exception:
+            voice_emotion = audio_result.get("voice_emotion", {})
+        emotion_ai_result = compute_emotional_ai_risk(
+            voice_emotion=voice_emotion,
+            emotion_percentages=video_result.get("emotion_percentages", {}),
             stress_emotion_ratio=video_result.get("stress_emotion_ratio", 0.0),
             deepface_available=video_result.get("deepface_available", False),
         )
 
-        score_result = calculate_final_score(
-            voice_behavioral_risk_score=voice_behavioral_risk_score,
-            voice_behavioral_sub=voice_behavioral_sub,
+        # Behavioral baseline risk
+        behavioral_result = compute_behavioral_baseline_risk(
+            baseline_metrics=audio_result.get("baseline_metrics", {}),
+            audio_result=audio_result,
+        )
+
+        # Identity/liveness risk (consolidated)
+        identity_liveness_risk = compute_identity_liveness_risk(
             liveness_sub=liveness_sub,
+            deepfake_flag=video_result.get("deepfake_flag", False),
+            coercion_detected=coercion_result.get("coercion_detected", False),
+        )
+
+        # Quality risk (consolidated)
+        quality_risk_val = compute_quality_risk(
             audio_quality_sub=audio_quality_sub,
-            multimodal_sub=multimodal_sub,
-            deepface_emotion_score=deepface_emotion_score,
-            deepface_available=video_result.get("deepface_available", False),
             quality_confidence=audio_result.get("quality_confidence", 0.1),
+        )
+
+        accessibility_mode = getattr(record, "accessibility_mode", False) or False
+
+        score_result = calculate_contextual_risk_score(
+            emotional_ai_risk=emotion_ai_result["emotional_ai_risk"],
+            behavioral_baseline_risk=behavioral_result["behavioral_baseline_risk"],
+            fraud_triangle_risk=fraud_result.get("fraud_triangle_risk", 0.0),
+            narrative_coherence_risk=narrative_result.get("narrative_coherence_risk", 0.0),
+            identity_liveness_risk=identity_liveness_risk,
+            quality_risk=quality_risk_val,
+            accessibility_mode=accessibility_mode,
             coercion_detected=coercion_result.get("coercion_detected", False),
             deepfake_flag=video_result.get("deepfake_flag", False),
+            quality_confidence=audio_result.get("quality_confidence", 0.1),
+            sub_scores={
+                "voice_behavioral_sub": voice_behavioral_sub,
+                "liveness_sub": liveness_sub,
+                "audio_quality_sub": audio_quality_sub,
+                "multimodal_sub": multimodal_sub,
+                "emotion_ai_detail": emotion_ai_result,
+                "behavioral_detail": behavioral_result,
+            },
         )
+        # Attach extra fields needed for DB save
+        score_result["emotion_ai_result"] = emotion_ai_result
+        score_result["behavioral_result"] = behavioral_result
+        score_result["identity_liveness_risk"] = identity_liveness_risk
+        score_result["quality_risk"] = quality_risk_val
 
         logger.info(f"[PIPELINE] Score={score_result['risk_score']:.1f}, status={score_result['status']}")
 
@@ -148,6 +232,12 @@ def _run_analysis_internal(db, session_id: int, video_path: str, client_session_
             "risk_breakdown": {"error": str(e)},
             "status": "Pendiente",
             "decision_reason": f"Error en scoring: {str(e)[:100]}",
+            "recommended_action": "pending",
+            "score_model_version": "emotional_contextual_v2",
+            "emotion_ai_result": {},
+            "behavioral_result": {},
+            "identity_liveness_risk": 30.0,
+            "quality_risk": 50.0,
         }
         liveness_sub = {}
         audio_quality_sub = {}
@@ -160,7 +250,7 @@ def _run_analysis_internal(db, session_id: int, video_path: str, client_session_
         _save_results(
             db, record, video_result, audio_result, coercion_result,
             liveness_sub, audio_quality_sub, multimodal_sub, voice_behavioral_sub,
-            score_result,
+            score_result, fraud_result, narrative_result,
         )
         logger.info(f"[PIPELINE] Resultados guardados — sesión {session_id} => {score_result['status']}")
     except Exception as e:
@@ -169,8 +259,11 @@ def _run_analysis_internal(db, session_id: int, video_path: str, client_session_
 
 def _save_results(db, record: AnalysisSession, video: dict, audio: dict,
                    coercion: dict, liveness_sub: dict, audio_quality_sub: dict,
-                   multimodal_sub: dict, voice_behavioral_sub: dict, score: dict):
+                   multimodal_sub: dict, voice_behavioral_sub: dict, score: dict,
+                   fraud: dict = None, narrative: dict = None):
     now = datetime.utcnow().isoformat()
+    fraud = fraud or {}
+    narrative = narrative or {}
 
     # Video
     record.video_duration_sec = video.get("video_duration_sec")
@@ -250,5 +343,48 @@ def _save_results(db, record: AnalysisSession, video: dict, audio: dict,
     record.status = score.get("status", "Pendiente")
     record.decision_reason = score.get("decision_reason", "")
     record.updated_at = now
+
+    # ── Emotional-Contextual v2 fields ─────────────────────────────────────
+    record.score_model_version = score.get("score_model_version", "emotional_contextual_v2")
+    record.recommended_action = score.get("recommended_action", "")
+    record.risk_explanation = score.get("decision_reason", "")
+
+    # Emotional AI
+    emotion_ai = score.get("emotion_ai_result", {})
+    record.emotional_ai_risk = emotion_ai.get("emotional_ai_risk")
+    record.emotion_shift_score = emotion_ai.get("emotion_shift_score")
+    record.multimodal_emotion_consistency = emotion_ai.get("multimodal_emotion_consistency")
+
+    # Behavioral baseline
+    behavioral = score.get("behavioral_result", {})
+    record.behavioral_baseline_risk = behavioral.get("behavioral_baseline_risk")
+    record.baseline_metrics = json.dumps(audio.get("baseline_metrics", {}))
+    record.question_metrics = json.dumps(behavioral.get("question_metrics", {}))
+
+    # Fraud triangle
+    record.fraud_triangle_risk = fraud.get("fraud_triangle_risk")
+    record.fraud_triangle_scores = json.dumps({
+        "pressure_score": fraud.get("pressure_score"),
+        "opportunity_score": fraud.get("opportunity_score"),
+        "rationalization_score": fraud.get("rationalization_score"),
+        "matched_signals": fraud.get("matched_signals", {}),
+        "explanation": fraud.get("explanation", ""),
+    })
+    record.pressure_score = fraud.get("pressure_score")
+    record.opportunity_score = fraud.get("opportunity_score")
+    record.rationalization_score = fraud.get("rationalization_score")
+
+    # Narrative coherence
+    record.narrative_coherence_risk = narrative.get("narrative_coherence_risk")
+    record.narrative_consistency_score = narrative.get("narrative_consistency_score")
+    record.contradiction_score = narrative.get("contradiction_score")
+    record.evasion_score = narrative.get("evasion_score")
+    record.incompleteness_score = narrative.get("incompleteness_score")
+
+    # Identity/liveness v2
+    record.identity_liveness_risk = score.get("identity_liveness_risk")
+
+    # Quality v2
+    record.quality_risk = score.get("quality_risk")
 
     db.commit()

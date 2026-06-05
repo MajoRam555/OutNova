@@ -177,6 +177,70 @@ def _compute_voice_behavioral_subscores(
     }
 
 
+def compute_baseline_metrics(audio_path: str, baseline_duration_sec: float = 60.0) -> dict:
+    """
+    Extract acoustic features from the first `baseline_duration_sec` of audio
+    to establish a neutral speech baseline for behavioral comparison.
+    """
+    try:
+        import numpy as np
+        try:
+            import librosa
+        except ImportError:
+            logger.warning("[BASELINE] librosa no disponible — baseline vacío.")
+            return {}
+
+        y, sr = librosa.load(audio_path, sr=16000, mono=True)
+        baseline_samples = int(baseline_duration_sec * sr)
+        y_baseline = y[:baseline_samples]
+
+        if len(y_baseline) < sr * 2:  # less than 2 seconds — skip
+            return {}
+
+        # Pitch (fundamental frequency via pyin)
+        try:
+            f0, voiced_flag, _ = librosa.pyin(
+                y_baseline, fmin=librosa.note_to_hz("C2"), fmax=librosa.note_to_hz("C7"),
+                sr=sr, frame_length=2048,
+            )
+            f0_voiced = f0[voiced_flag] if voiced_flag is not None else np.array([])
+            if len(f0_voiced) > 0:
+                avg_pitch_cv = float(np.std(f0_voiced) / (np.mean(f0_voiced) + 1e-6))
+            else:
+                avg_pitch_cv = None
+        except Exception:
+            avg_pitch_cv = None
+
+        # Energy
+        rms = librosa.feature.rms(y=y_baseline, frame_length=2048, hop_length=512)[0]
+        avg_energy_cv = float(np.std(rms) / (np.mean(rms) + 1e-6)) if len(rms) > 0 else None
+
+        # Silence ratio (frames below energy threshold)
+        energy_threshold = 0.01
+        silence_frames = np.sum(rms < energy_threshold)
+        avg_silence_ratio = float(silence_frames / len(rms)) if len(rms) > 0 else None
+
+        # Speech rate (rough estimate: voiced frames / duration)
+        voiced_count = np.sum(voiced_flag) if voiced_flag is not None else 0
+        baseline_dur = len(y_baseline) / sr
+        # Convert voiced frames to rough WPM (approx: 3 voiced-seconds per word)
+        avg_speech_rate_wpm = float((voiced_count / (sr / 512)) / 3.0 * 60.0 / baseline_dur * baseline_dur) if baseline_dur > 0 else None
+
+        baseline = {
+            "avg_pitch_cv": avg_pitch_cv,
+            "avg_energy_cv": avg_energy_cv,
+            "avg_silence_ratio": avg_silence_ratio,
+            "avg_speech_rate_wpm": avg_speech_rate_wpm,
+            "baseline_duration_sec": baseline_dur,
+        }
+        logger.info(f"[BASELINE] pitch_cv={avg_pitch_cv}, silence={avg_silence_ratio}, energy_cv={avg_energy_cv}")
+        return {k: v for k, v in baseline.items() if v is not None}
+
+    except Exception as e:
+        logger.warning(f"[BASELINE] Error calculando baseline: {e}")
+        return {}
+
+
 def run_audio_pipeline(video_path: str, session_id: str, duration_sec: float = 0.0) -> dict:
     """
     Full audio pipeline. Returns comprehensive audio analysis dict.
@@ -204,6 +268,7 @@ def run_audio_pipeline(video_path: str, session_id: str, duration_sec: float = 0
         "coercion": {},
         "voice_behavioral_sub_scores": {},
         "voice_behavioral_risk_score": 50.0,
+        "baseline_metrics": {},
         "errors": [],
     }
 
@@ -304,7 +369,15 @@ def run_audio_pipeline(video_path: str, session_id: str, duration_sec: float = 0
         result["coercion"] = {"coercion_detected": False, "coercion_score": 0.0, "error": str(e)}
         result["errors"].append(f"coercion: {e}")
 
-    # 9. Voice behavioral sub-scores
+    # 9. Baseline metrics (first ~60s as neutral reference)
+    logger.info("[AUDIO] Calculando métricas de baseline...")
+    try:
+        result["baseline_metrics"] = compute_baseline_metrics(audio_path, baseline_duration_sec=60.0)
+    except Exception as e:
+        result["errors"].append(f"baseline_metrics: {e}")
+        logger.warning(f"[AUDIO] Baseline metrics error: {e}")
+
+    # 10. Voice behavioral sub-scores
     try:
         behavioral = _compute_voice_behavioral_subscores(
             coercion_result=result["coercion"],

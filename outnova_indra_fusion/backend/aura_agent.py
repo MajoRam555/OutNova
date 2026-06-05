@@ -38,21 +38,132 @@ _ACKS = [
     "Claro, lo entiendo.",
 ]
 
-# Fallback questions — phrased naturally, with soft connectors
-FALLBACK_TURNS = [
-    "Hola, soy AURA. Voy a acompañarte en este proceso de verificación. ¿Puedes confirmarme que estás haciendo esto de forma voluntaria?",
-    "¿Puedes describirme brevemente el lugar donde te encuentras ahora mismo?",
-    "Vamos a hacer un pequeño ejercicio de atención: ¿podrías deletrear la palabra MESA al revés?",
-    "¿Qué objeto tienes más cerca de ti en este momento?",
-    "¿Qué estabas haciendo justo antes de comenzar esta verificación?",
-    "¿Hay alguien más contigo en la habitación en este momento?",
-    "¿Puedes mover ligeramente la cabeza hacia los lados y decirme cómo te sientes hoy?",
-    "¿Puedes confirmarme que esta decisión la estás tomando de forma completamente personal, sin ninguna presión externa?",
-    "¿Puedes decirme tu nombre completo?",
-    "¿Puedes decirme cuál es la fecha de hoy con tus propias palabras?",
-    "¿Te encuentras en un lugar tranquilo y privado en este momento?",
-    "Estamos llegando al final del proceso. ¿Tienes alguna pregunta sobre esta verificación?",
+# ── Phase-aware conversation structure ───────────────────────────────────────
+#
+# Each turn is a dict with:
+#   text            — the question AURA asks
+#   phase           — conversation phase (practice / baseline / identity_context /
+#                     sensitive_dilemma / closing)
+#   question_type   — warm_up / environment / cognitive / consent / identity /
+#                     behavioral / dilemma / closing
+#   counts_for_score— whether this turn's response contributes to scoring
+#   expected_signal — what behavioral signal we're probing (or None)
+
+PHASE_TURNS = [
+    # ── PHASE 1: Practice (~30-45s, no scoring) ─────────────────────────────
+    {
+        "text": "Hola, soy AURA. Voy a acompañarte en esta verificación. Antes de comenzar, hagamos una pequeña prueba. ¿Puedes decirme cómo está el tiempo hoy donde tú estás?",
+        "phase": "practice",
+        "question_type": "warm_up",
+        "counts_for_score": False,
+        "expected_signal": None,
+    },
+    {
+        "text": "Perfecto, ya vi que el audio funciona bien. ¿Puedes decirme en voz alta el nombre del mes en que naciste?",
+        "phase": "practice",
+        "question_type": "warm_up",
+        "counts_for_score": False,
+        "expected_signal": None,
+    },
+    # ── PHASE 2: Baseline (~60s, only baseline metrics) ──────────────────────
+    {
+        "text": "Muy bien. Ahora sí comenzamos formalmente. ¿Puedes describirme brevemente el lugar donde te encuentras en este momento?",
+        "phase": "baseline",
+        "question_type": "environment",
+        "counts_for_score": True,
+        "expected_signal": "baseline_speech_pattern",
+    },
+    {
+        "text": "¿Qué objeto tienes más cerca de ti ahora mismo?",
+        "phase": "baseline",
+        "question_type": "environment",
+        "counts_for_score": True,
+        "expected_signal": "baseline_speech_pattern",
+    },
+    {
+        "text": "Vamos a hacer un pequeño ejercicio. ¿Puedes deletrear la palabra CASA al revés?",
+        "phase": "baseline",
+        "question_type": "cognitive",
+        "counts_for_score": True,
+        "expected_signal": "cognitive_baseline",
+    },
+    # ── PHASE 3: Identity context (~45s, low weight) ─────────────────────────
+    {
+        "text": "Gracias. Ahora pasamos a la parte de identidad. ¿Puedes confirmarme tu nombre completo?",
+        "phase": "identity_context",
+        "question_type": "identity",
+        "counts_for_score": True,
+        "expected_signal": "identity_consistency",
+    },
+    {
+        "text": "¿Cuál es la fecha de hoy con tus propias palabras?",
+        "phase": "identity_context",
+        "question_type": "cognitive",
+        "counts_for_score": True,
+        "expected_signal": "temporal_orientation",
+    },
+    {
+        "text": "¿Hay alguien más contigo en este momento, o estás solo/a?",
+        "phase": "identity_context",
+        "question_type": "consent",
+        "counts_for_score": True,
+        "expected_signal": "coercion_context",
+    },
+    # ── PHASE 4: Sensitive dilemma (2-3 min, main scoring) ───────────────────
+    {
+        "text": "Quiero asegurarme de algo importante. ¿Estás realizando esta verificación por tu propia voluntad, sin que nadie te haya pedido o presionado que lo hagas?",
+        "phase": "sensitive_dilemma",
+        "question_type": "consent",
+        "counts_for_score": True,
+        "expected_signal": "coercion_pressure",
+    },
+    {
+        "text": "Te voy a hacer una pregunta un poco más personal. Si en algún momento durante esta verificación sintieras que no puedes hablar con libertad, ¿me lo harías saber de alguna manera?",
+        "phase": "sensitive_dilemma",
+        "question_type": "behavioral",
+        "counts_for_score": True,
+        "expected_signal": "coercion_pressure",
+    },
+    {
+        "text": "¿Qué estabas haciendo justo antes de comenzar este proceso hoy?",
+        "phase": "sensitive_dilemma",
+        "question_type": "behavioral",
+        "counts_for_score": True,
+        "expected_signal": "narrative_consistency",
+    },
+    {
+        "text": "¿Puedes contarme, con tus propias palabras, por qué estás realizando esta verificación hoy?",
+        "phase": "sensitive_dilemma",
+        "question_type": "dilemma",
+        "counts_for_score": True,
+        "expected_signal": "narrative_coherence",
+    },
+    {
+        "text": "Si en algún momento descubrieras que hay un error en tu cuenta o en algún proceso financiero que te involucra, ¿qué harías?",
+        "phase": "sensitive_dilemma",
+        "question_type": "dilemma",
+        "counts_for_score": True,
+        "expected_signal": "rationalization_opportunity",
+    },
+    # ── PHASE 5: Closing (~15s, no scoring) ──────────────────────────────────
+    {
+        "text": "Gracias, estamos terminando. ¿Confirmas que todo lo que compartiste hoy es verdadero y que participaste de forma libre?",
+        "phase": "closing",
+        "question_type": "closing",
+        "counts_for_score": False,
+        "expected_signal": None,
+    },
+    {
+        "text": "Perfecto. La verificación ha concluido. Muchas gracias por tu tiempo y cooperación.",
+        "phase": "closing",
+        "question_type": "closing",
+        "counts_for_score": False,
+        "expected_signal": None,
+    },
 ]
+
+# Flat list of texts for backward-compatible fallback
+FALLBACK_TURNS = [t["text"] for t in PHASE_TURNS]
 
 
 @dataclass
@@ -64,6 +175,19 @@ class AuraChatSession:
     updated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     used_fallback: bool = False
     model_status: str = "not_loaded"
+    current_phase: str = "practice"
+    turn_index: int = 0
+
+    def _current_turn_meta(self) -> dict:
+        """Return phase metadata for the current turn index."""
+        idx = self.turn_index % len(PHASE_TURNS)
+        t = PHASE_TURNS[idx]
+        return {
+            "phase": t["phase"],
+            "question_type": t["question_type"],
+            "counts_for_score": t["counts_for_score"],
+            "expected_signal": t["expected_signal"],
+        }
 
     def add_message(self, role: str, content: str, source: Optional[str] = None):
         entry = {
@@ -73,6 +197,17 @@ class AuraChatSession:
         }
         if source:
             entry["source"] = source
+        # Attach phase metadata to user responses (for scoring)
+        if role == "user" and self.turn_index > 0:
+            meta = self._current_turn_meta()
+            entry.update(meta)
+            self.current_phase = meta["phase"]
+        # Advance turn index when AURA asks a question
+        if role == "aura":
+            next_idx = self.turn_index + 1
+            if next_idx < len(PHASE_TURNS):
+                self.current_phase = PHASE_TURNS[next_idx]["phase"]
+            self.turn_index = next_idx
         self.messages.append(entry)
         self.updated_at = datetime.utcnow().isoformat()
 

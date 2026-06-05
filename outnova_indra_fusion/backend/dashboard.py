@@ -127,13 +127,21 @@ components.html(
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def status_cls(status: str) -> str:
-    return {"Aprobado": "on-ok", "Rechazado": "on-bad",
-            "Recaptura": "on-mid", "Procesando": "on-blu"}.get(status, "on-neu")
+    return {
+        "Aprobado": "on-ok",
+        "Rechazado": "on-bad",
+        "Riesgo crítico": "on-bad",
+        "Recaptura": "on-mid",
+        "Revisión ligera": "on-mid",
+        "Revisión humana obligatoria": "on-mid",
+        "Procesando": "on-blu",
+    }.get(status, "on-neu")
 
 def risk_cls(score) -> str:
     if score is None: return "c-non"
     if score < 30: return "c-ok"
-    if score < 85: return "c-mid"
+    if score < 60: return "c-mid"
+    if score < 80: return "c-mid"
     return "c-bad"
 
 def mc(label: str, value: str, sub: str = "", val_cls: str = "") -> str:
@@ -144,6 +152,14 @@ def mc(label: str, value: str, sub: str = "", val_cls: str = "") -> str:
 def badge(text: str, cls: str) -> str:
     return f'<span class="on-badge {cls}">{text}</span>'
 
+_PHASE_COLORS = {
+    "practice": "#8B5CF6",
+    "baseline": "#0EA5E9",
+    "identity_context": "#10B981",
+    "sensitive_dilemma": "#F59E0B",
+    "closing": "#6B7280",
+}
+
 def chat_html(msgs: list) -> str:
     if not msgs:
         return '<p style="color:#9CA3AF;font-size:13px;">Sin transcript disponible.</p>'
@@ -153,6 +169,9 @@ def chat_html(msgs: list) -> str:
         content = m.get("content", "")
         source  = m.get("source", "")
         ts      = m.get("timestamp", "")[:19].replace("T", " ")
+        phase   = m.get("phase", "")
+        q_type  = m.get("question_type", "")
+        counts  = m.get("counts_for_score")
         if role == "aura":
             parts.append(f'''<div class="on-msg-a">
   <div class="on-meta">🤖 <b style="color:#2563EB">AURA</b> &nbsp; {ts}</div>
@@ -165,8 +184,15 @@ def chat_html(msgs: list) -> str:
             else:
                 mini = '<span class="on-mb-typed">⌨ texto</span>'
                 bbl  = "on-bbl-t"
+            phase_tag = ""
+            if phase:
+                col = _PHASE_COLORS.get(phase, "#6B7280")
+                score_icon = "📊" if counts else "⬜"
+                phase_tag = (f'<span style="background:{col}18;color:{col};border:1px solid {col}44;'
+                             f'border-radius:999px;padding:1px 7px;font-size:10px;font-weight:600;margin-left:4px;">'
+                             f'{score_icon} {phase}</span>')
             parts.append(f'''<div class="on-msg-u">
-  <div class="on-meta on-meta-r">{ts} &nbsp; 👤 <b style="color:#374151">Usuario</b> {mini}</div>
+  <div class="on-meta on-meta-r">{ts} &nbsp; 👤 <b style="color:#374151">Usuario</b> {mini}{phase_tag}</div>
   <div class="on-bbl {bbl}">{content}</div>
 </div>''')
     parts.append('</div>')
@@ -213,7 +239,8 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="on-lbl">Filtrar por estado</div>', unsafe_allow_html=True)
-    status_filter = st.selectbox("Estado", ["Todos","Pendiente","Procesando","Aprobado","Rechazado","Recaptura"],
+    status_filter = st.selectbox("Estado", ["Todos","Pendiente","Procesando","Aprobado","Rechazado","Recaptura",
+                                             "Revisión ligera","Revisión humana obligatoria","Riesgo crítico"],
                                  label_visibility="collapsed")
     if st.button("↺  Actualizar lista", use_container_width=True):
         st.rerun()
@@ -253,6 +280,10 @@ short_id     = (s.get("client_session_id") or "—")[:8].upper()
 reason       = s.get("decision_reason") or s.get("status_reason") or ""
 r_cls        = risk_cls(score)
 s_cls        = status_cls(status)
+accessibility = bool(s.get("accessibility_mode"))
+score_model  = s.get("score_model_version") or "legacy"
+recommended  = s.get("recommended_action") or ""
+risk_expl    = s.get("risk_explanation") or reason
 
 breakdown = s.get("risk_breakdown") or {}
 if isinstance(breakdown, str):
@@ -260,6 +291,7 @@ if isinstance(breakdown, str):
     except: breakdown = {}
 
 deepface_avail = bool(s.get("deepface_available"))
+is_v2 = "emotional_contextual_v2" in score_model
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
@@ -293,11 +325,15 @@ st.markdown(f"""
       <div class="on-card-sub">Panel de revisión biométrica y conversacional</div>
       <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         {badge(status, s_cls)}
+        {'<span class="on-badge on-blu">♿ Accesibilidad</span>' if accessibility else ''}
         <span style="font-size:11px;color:#9CA3AF;">
           ID: <code style="background:#F1F5F9;padding:1px 6px;border-radius:4px;color:#374151;font-size:11px;">
             {s.get('client_session_id','—')[:24]}</code>
         </span>
         <span style="font-size:11px;color:#9CA3AF;">{s.get('created_at','—')[:19].replace('T',' ')}</span>
+        <span style="font-size:10px;color:#9CA3AF;background:#F1F5F9;padding:1px 7px;border-radius:999px;border:1px solid #E5E7EB;">
+          {score_model}
+        </span>
       </div>
     </div>
     <div style="text-align:right;">
@@ -350,23 +386,38 @@ with m6: st.markdown(mc("Turnos AURA", str(turns), s.get("aura_model_status") or
 st.markdown('<div style="margin-top:4px;"></div>', unsafe_allow_html=True)
 col_d, col_s = st.columns([1, 2])
 
-donut_labels = ["Voice Behavioral", "Liveness & Spoof", "Audio Quality", "Multimodal"]
-donut_values = [
-    (breakdown.get("voice_behavioral_risk_score") or s.get("voice_behavioral_risk_score") or 0),
-    (breakdown.get("liveness_spoof_risk_score")   or s.get("liveness_spoof_risk_score")   or 0),
-    (breakdown.get("audio_quality_risk_score")    or s.get("audio_quality_risk_score")    or 0),
-    (breakdown.get("multimodal_consistency_risk_score") or s.get("multimodal_consistency_risk_score") or 0),
-]
-if deepface_avail:
-    donut_labels.append("DeepFace")
-    donut_values.append(breakdown.get("deepface_emotion_risk_score") or s.get("deepface_emotion_risk_score") or 0)
+if is_v2:
+    donut_labels = ["Emocional IA", "Baseline Conductual", "Triángulo Fraude",
+                    "Coherencia Narrativa", "Identidad/Liveness", "Calidad"]
+    donut_values = [
+        (s.get("emotional_ai_risk") or breakdown.get("emotional_ai_risk") or 0),
+        (s.get("behavioral_baseline_risk") or breakdown.get("behavioral_baseline_risk") or 0),
+        (s.get("fraud_triangle_risk") or breakdown.get("fraud_triangle_risk") or 0),
+        (s.get("narrative_coherence_risk") or breakdown.get("narrative_coherence_risk") or 0),
+        (s.get("identity_liveness_risk") or breakdown.get("identity_liveness_risk") or 0),
+        (s.get("quality_risk") or breakdown.get("quality_risk") or 0),
+    ]
+    donut_colors = ["#8B5CF6","#0EA5E9","#EF4444","#F59E0B","#10B981","#6B7280"]
+else:
+    donut_labels = ["Voice Behavioral", "Liveness & Spoof", "Audio Quality", "Multimodal"]
+    donut_values = [
+        (breakdown.get("voice_behavioral_risk_score") or s.get("voice_behavioral_risk_score") or 0),
+        (breakdown.get("liveness_spoof_risk_score")   or s.get("liveness_spoof_risk_score")   or 0),
+        (breakdown.get("audio_quality_risk_score")    or s.get("audio_quality_risk_score")    or 0),
+        (breakdown.get("multimodal_consistency_risk_score") or s.get("multimodal_consistency_risk_score") or 0),
+    ]
+    donut_colors = ["#2563EB","#DC2626","#D97706","#1D4ED8"]
+    if deepface_avail:
+        donut_labels.append("DeepFace")
+        donut_values.append(breakdown.get("deepface_emotion_risk_score") or s.get("deepface_emotion_risk_score") or 0)
+        donut_colors.append("#F43F5E")
 
 with col_d:
     st.markdown('<div class="on-card"><div class="on-card-title">Distribución de Riesgo</div><div class="on-card-sub" style="margin-bottom:8px;">Desglose por componente</div>', unsafe_allow_html=True)
     fig = go.Figure(go.Pie(
         labels=donut_labels, values=donut_values, hole=0.55,
         textinfo="label+percent",
-        marker_colors=["#2563EB","#DC2626","#D97706","#1D4ED8","#F43F5E"],
+        marker_colors=donut_colors,
         textfont=dict(family="Inter, system-ui", size=11),
     ))
     fig.update_layout(showlegend=False, margin=dict(t=6,b=6,l=6,r=6), height=250,
@@ -376,26 +427,60 @@ with col_d:
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_s:
-    st.markdown('<div class="on-card"><div class="on-card-title">Sub-scores</div><div class="on-card-sub" style="margin-bottom:12px;">Puntuación por componente</div>', unsafe_allow_html=True)
-    sa, sb = st.columns(2)
-    with sa:
-        st.markdown(mc("Voice Behavioral", f"{(s.get('voice_behavioral_risk_score') or 0):.1f}", "peso 45%"), unsafe_allow_html=True)
-        st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
-        st.markdown(mc("Audio Quality", f"{(s.get('audio_quality_risk_score') or 0):.1f}", "peso 15%"), unsafe_allow_html=True)
-        st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
-        st.markdown(mc("Coerción score", f"{(s.get('coercion_score') or 0):.3f}", ""), unsafe_allow_html=True)
-    with sb:
-        st.markdown(mc("Liveness & Spoof", f"{(s.get('liveness_spoof_risk_score') or 0):.1f}", "peso 25%"), unsafe_allow_html=True)
-        st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
-        st.markdown(mc("Multimodal", f"{(s.get('multimodal_consistency_risk_score') or 0):.1f}", "peso 10%"), unsafe_allow_html=True)
-        st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
-        st.markdown(mc("Quality conf.", f"{qc:.0%}", "umbral 70%", "c-ok" if qc>=0.7 else "c-bad"), unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    if is_v2:
+        weights = breakdown.get("weights_used", {})
+        w_emo = weights.get("emotional_ai", 0.30)
+        w_beh = weights.get("behavioral_baseline", 0.20)
+        w_fra = weights.get("fraud_triangle", 0.20)
+        w_nar = weights.get("narrative_coherence", 0.15)
+        w_liv = weights.get("identity_liveness", 0.10)
+        w_qua = weights.get("quality", 0.05)
+        st.markdown('<div class="on-card"><div class="on-card-title">Sub-scores v2</div><div class="on-card-sub" style="margin-bottom:12px;">Modelo emocional-contextual</div>', unsafe_allow_html=True)
+        sa, sb = st.columns(2)
+        with sa:
+            st.markdown(mc("Emocional IA", f"{(s.get('emotional_ai_risk') or 0):.1f}", f"peso {w_emo:.0%}"), unsafe_allow_html=True)
+            st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
+            st.markdown(mc("Triángulo Fraude", f"{(s.get('fraud_triangle_risk') or 0):.1f}", f"peso {w_fra:.0%}"), unsafe_allow_html=True)
+            st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
+            st.markdown(mc("Identidad/Liveness", f"{(s.get('identity_liveness_risk') or 0):.1f}", f"peso {w_liv:.0%}"), unsafe_allow_html=True)
+        with sb:
+            st.markdown(mc("Baseline Conductual", f"{(s.get('behavioral_baseline_risk') or 0):.1f}", f"peso {w_beh:.0%}"), unsafe_allow_html=True)
+            st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
+            st.markdown(mc("Coherencia Narrativa", f"{(s.get('narrative_coherence_risk') or 0):.1f}", f"peso {w_nar:.0%}"), unsafe_allow_html=True)
+            st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
+            st.markdown(mc("Calidad", f"{(s.get('quality_risk') or 0):.1f}", f"peso {w_qua:.0%}"), unsafe_allow_html=True)
+        if recommended:
+            action_map = {"approve": ("✅ Aprobar", "on-ok"), "reject": ("🚫 Rechazar automáticamente", "on-bad"),
+                          "recapture": ("🔁 Recaptura requerida", "on-mid"),
+                          "light_review": ("👀 Revisión ligera", "on-mid"),
+                          "mandatory_review": ("🧑‍⚖️ Revisión humana obligatoria", "on-bad")}
+            action_label, action_cls = action_map.get(recommended, (recommended, "on-neu"))
+            st.markdown(f'<div style="margin-top:10px;">{badge("Acción recomendada: " + action_label, action_cls)}</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="on-card"><div class="on-card-title">Sub-scores</div><div class="on-card-sub" style="margin-bottom:12px;">Puntuación por componente</div>', unsafe_allow_html=True)
+        sa, sb = st.columns(2)
+        with sa:
+            st.markdown(mc("Voice Behavioral", f"{(s.get('voice_behavioral_risk_score') or 0):.1f}", "peso 45%"), unsafe_allow_html=True)
+            st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
+            st.markdown(mc("Audio Quality", f"{(s.get('audio_quality_risk_score') or 0):.1f}", "peso 15%"), unsafe_allow_html=True)
+            st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
+            st.markdown(mc("Coerción score", f"{(s.get('coercion_score') or 0):.3f}", ""), unsafe_allow_html=True)
+        with sb:
+            st.markdown(mc("Liveness & Spoof", f"{(s.get('liveness_spoof_risk_score') or 0):.1f}", "peso 25%"), unsafe_allow_html=True)
+            st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
+            st.markdown(mc("Multimodal", f"{(s.get('multimodal_consistency_risk_score') or 0):.1f}", "peso 10%"), unsafe_allow_html=True)
+            st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
+            st.markdown(mc("Quality conf.", f"{qc:.0%}", "umbral 70%", "c-ok" if qc>=0.7 else "c-bad"), unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ── Detail tabs ───────────────────────────────────────────────────────────────
 st.markdown('<div style="margin-top:4px;"></div>', unsafe_allow_html=True)
-tv, ta, tco, tau, tdf, traw = st.tabs(["🎥 Video/Liveness","🎙 Audio","⚠️ Coerción","💬 AURA","🧠 DeepFace","🔧 Raw"])
+tv, ta, tco, tfr, tnar, tau, tdf, traw = st.tabs([
+    "🎥 Video/Liveness","🎙 Audio","⚠️ Coerción",
+    "🔺 Fraude","📖 Narrativa","💬 AURA","🧠 DeepFace","🔧 Raw"
+])
 
 # ── VIDEO ──────────────────────────────────────────────────────────────────────
 with tv:
@@ -497,6 +582,49 @@ with tco:
         st.success("✅ Sin indicadores de coerción en la transcripción.")
         st.markdown(mc("Coerción score", f"{(s.get('coercion_score') or 0):.3f}", "sin umbral superado", "c-ok"), unsafe_allow_html=True)
 
+# ── FRAUD TRIANGLE ─────────────────────────────────────────────────────────────
+with tfr:
+    st.markdown('<div class="on-card-title" style="margin-bottom:12px;">Triángulo del Fraude</div>', unsafe_allow_html=True)
+    ft_risk = s.get("fraud_triangle_risk")
+    ft_cls = "c-ok" if (ft_risk or 0) < 30 else "c-mid" if (ft_risk or 0) < 60 else "c-bad"
+    ft1, ft2, ft3, ft4 = st.columns(4)
+    with ft1: st.markdown(mc("Riesgo total", f"{(ft_risk or 0):.1f}", "triángulo del fraude", ft_cls), unsafe_allow_html=True)
+    with ft2: st.markdown(mc("Presión", f"{(s.get('pressure_score') or 0):.1f}", "peso 45%"), unsafe_allow_html=True)
+    with ft3: st.markdown(mc("Oportunidad", f"{(s.get('opportunity_score') or 0):.1f}", "peso 30%"), unsafe_allow_html=True)
+    with ft4: st.markdown(mc("Racionalización", f"{(s.get('rationalization_score') or 0):.1f}", "peso 25%"), unsafe_allow_html=True)
+
+    ft_scores = s.get("fraud_triangle_scores") or {}
+    if isinstance(ft_scores, str):
+        try: ft_scores = json.loads(ft_scores)
+        except: ft_scores = {}
+    signals = ft_scores.get("matched_signals", {})
+    explanation = ft_scores.get("explanation", "")
+    if explanation:
+        st.markdown(f'<div style="margin-top:12px;padding:10px 14px;background:#FEF9C3;border:1px solid #FDE68A;border-radius:8px;font-size:13px;color:#78350F;">{explanation}</div>', unsafe_allow_html=True)
+    for category, phrases in (signals or {}).items():
+        if phrases:
+            with st.expander(f"Señales de {category} ({len(phrases)})"):
+                for p in phrases:
+                    st.markdown(f'- `{p}`')
+
+    if not ft_risk:
+        st.info("Sin señales del triángulo del fraude detectadas.")
+
+# ── NARRATIVE COHERENCE ─────────────────────────────────────────────────────────
+with tnar:
+    st.markdown('<div class="on-card-title" style="margin-bottom:12px;">Coherencia Narrativa</div>', unsafe_allow_html=True)
+    nar_risk = s.get("narrative_coherence_risk")
+    nar_cls = "c-ok" if (nar_risk or 0) < 30 else "c-mid" if (nar_risk or 0) < 60 else "c-bad"
+    n1, n2, n3, n4, n5 = st.columns(5)
+    with n1: st.markdown(mc("Riesgo total", f"{(nar_risk or 0):.1f}", "coherencia narrativa", nar_cls), unsafe_allow_html=True)
+    with n2: st.markdown(mc("Evasión", f"{(s.get('evasion_score') or 0):.1f}", "peso 35%"), unsafe_allow_html=True)
+    with n3: st.markdown(mc("Contradicción", f"{(s.get('contradiction_score') or 0):.1f}", "peso 30%"), unsafe_allow_html=True)
+    with n4: st.markdown(mc("Incompletitud", f"{(s.get('incompleteness_score') or 0):.1f}", "peso 20%"), unsafe_allow_html=True)
+    with n5: st.markdown(mc("Consistencia", f"{(s.get('narrative_consistency_score') or 0):.1f}", "peso 15%"), unsafe_allow_html=True)
+
+    if not nar_risk:
+        st.success("✅ Sin señales de incoherencia narrativa detectadas.")
+
 # ── AURA ───────────────────────────────────────────────────────────────────────
 with tau:
     st.markdown(f"""
@@ -548,6 +676,18 @@ with traw:
     st.markdown('<div class="on-card-title" style="margin-bottom:10px;">Datos técnicos</div>', unsafe_allow_html=True)
     with st.expander("Risk breakdown (JSON)"):
         st.json(breakdown)
+    ft_raw = s.get("fraud_triangle_scores") or {}
+    if isinstance(ft_raw, str):
+        try: ft_raw = json.loads(ft_raw)
+        except: ft_raw = {}
+    with st.expander("Triángulo del fraude (JSON)"):
+        st.json(ft_raw)
+    bl_raw = s.get("baseline_metrics") or {}
+    if isinstance(bl_raw, str):
+        try: bl_raw = json.loads(bl_raw)
+        except: bl_raw = {}
+    with st.expander("Baseline conductual (JSON)"):
+        st.json(bl_raw)
     aq = s.get("audio_quality") or {}
     if isinstance(aq, str):
         try: aq = json.loads(aq)
@@ -565,7 +705,7 @@ st.markdown(f"""
             box-shadow:0 1px 3px rgba(0,0,0,.05);">
   <div style="display:flex;align-items:center;gap:8px;">
     <div class="on-logo-mark" style="width:24px;height:24px;font-size:9px;">ON</div>
-    <span style="font-size:12px;color:#6B7280 !important;">OutNova Security v2.4.1</span>
+    <span style="font-size:12px;color:#6B7280 !important;">OutNova Security · {score_model}</span>
   </div>
   <span style="font-size:11px;color:#9CA3AF !important;">{datetime.now().strftime('%Y-%m-%d %H:%M')}</span>
 </div>

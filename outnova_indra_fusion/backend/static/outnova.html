@@ -344,6 +344,60 @@
       line-height: 1.5;
     }
 
+    /* Accessibility toggle */
+    .accessibility-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      background: rgba(96, 165, 250, 0.06);
+      border: 1px solid rgba(96, 165, 250, 0.18);
+      border-radius: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .accessibility-toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-primary);
+      cursor: pointer;
+      flex: 1;
+    }
+    .accessibility-toggle-icon { color: #60A5FA; flex-shrink: 0; }
+    .accessibility-toggle-hint {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-left: 4px;
+    }
+    .accessibility-toggle-switch { display: flex; align-items: center; }
+    .accessibility-toggle-switch input[type="checkbox"] { display: none; }
+    .toggle-track {
+      display: inline-flex;
+      align-items: center;
+      width: 42px;
+      height: 24px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      cursor: pointer;
+      transition: background 0.2s;
+      position: relative;
+    }
+    .toggle-thumb {
+      position: absolute;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #94A3B8;
+      transition: transform 0.2s, background 0.2s;
+    }
+    #accessibility-toggle:checked + .toggle-track { background: rgba(96, 165, 250, 0.35); border-color: #60A5FA; }
+    #accessibility-toggle:checked + .toggle-track .toggle-thumb { transform: translateX(18px); background: #60A5FA; }
+
     /* ══════════════════════════════════════════════════════
        PHASE 1 — ENVIRONMENT CHECK
     ══════════════════════════════════════════════════════ */
@@ -1186,6 +1240,25 @@
             </div>
             <div class="info-card-title">Datos Cifrados</div>
             <div class="info-card-desc">Transmisión segura con cifrado TLS 1.3 extremo a extremo</div>
+          </div>
+        </div>
+
+        <div class="accessibility-toggle-row" id="accessibility-toggle-row">
+          <label class="accessibility-toggle-label" for="accessibility-toggle">
+            <span class="accessibility-toggle-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v4M12 16h.01"/>
+              </svg>
+            </span>
+            <span>Modo accesibilidad</span>
+            <span class="accessibility-toggle-hint">(para usuarios con dificultades del habla o condiciones neurodivergentes)</span>
+          </label>
+          <div class="accessibility-toggle-switch">
+            <input type="checkbox" id="accessibility-toggle" />
+            <span class="toggle-track">
+              <span class="toggle-thumb"></span>
+            </span>
           </div>
         </div>
 
@@ -2255,6 +2328,8 @@
       formData.append('video', blob, `session_${clientSessionId}.webm`);
       formData.append('session_id', clientSessionId);
       formData.append('timestamp', new Date().toISOString());
+      const accessibilityToggle = document.getElementById('accessibility-toggle');
+      formData.append('accessibility_mode', accessibilityToggle && accessibilityToggle.checked ? 'true' : 'false');
 
       const response = await fetch('/upload', {
         method: 'POST',

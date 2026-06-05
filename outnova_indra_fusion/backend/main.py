@@ -314,6 +314,7 @@ async def upload_video(
     video: UploadFile = File(...),
     session_id: str = Form(...),
     timestamp: Optional[str] = Form(None),
+    accessibility_mode: Optional[bool] = Form(False),
     db: Session = Depends(get_db),
 ):
     # Validate size
@@ -356,6 +357,7 @@ async def upload_video(
         existing.aura_turn_count = aura_turns
         existing.aura_model_status = aura_model_status
         existing.aura_used_fallback = aura_used_fallback
+        existing.accessibility_mode = bool(accessibility_mode)
         existing.status = "Pendiente"
         existing.updated_at = datetime.utcnow().isoformat()
         db.commit()
@@ -367,6 +369,7 @@ async def upload_video(
         record.aura_turn_count = aura_turns
         record.aura_model_status = aura_model_status
         record.aura_used_fallback = aura_used_fallback
+        record.accessibility_mode = bool(accessibility_mode)
         db.commit()
         db.refresh(record)
 

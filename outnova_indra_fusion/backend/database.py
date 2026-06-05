@@ -116,15 +116,58 @@ class AnalysisSession(Base):
     # DeepFace emotion risk
     deepface_emotion_risk_score = Column(Float, nullable=True)
 
+    # ── Emotional-Contextual v2 model ─────────────────────────────────────────
+
+    # Session config
+    accessibility_mode = Column(Boolean, default=False)
+    score_model_version = Column(String, nullable=True)
+
+    # Emotional AI risk
+    emotional_ai_risk = Column(Float, nullable=True)
+    emotion_shift_score = Column(Float, nullable=True)
+    multimodal_emotion_consistency = Column(Float, nullable=True)
+
+    # Behavioral baseline
+    behavioral_baseline_risk = Column(Float, nullable=True)
+    baseline_metrics = Column(Text, nullable=True)
+    question_metrics = Column(Text, nullable=True)
+
+    # Fraud triangle
+    fraud_triangle_risk = Column(Float, nullable=True)
+    fraud_triangle_scores = Column(Text, nullable=True)
+    pressure_score = Column(Float, nullable=True)
+    opportunity_score = Column(Float, nullable=True)
+    rationalization_score = Column(Float, nullable=True)
+
+    # Narrative coherence
+    narrative_coherence_risk = Column(Float, nullable=True)
+    narrative_consistency_score = Column(Float, nullable=True)
+    contradiction_score = Column(Float, nullable=True)
+    evasion_score = Column(Float, nullable=True)
+    incompleteness_score = Column(Float, nullable=True)
+
+    # Identity / liveness (v2 consolidated)
+    identity_liveness_risk = Column(Float, nullable=True)
+
+    # Quality (v2 consolidated)
+    quality_risk = Column(Float, nullable=True)
+
+    # Final output
+    recommended_action = Column(Text, nullable=True)
+    risk_explanation = Column(Text, nullable=True)
+
+    _JSON_COLUMNS = {
+        "aura_transcript", "emotion_percentages", "audio_analysis_json",
+        "audio_quality", "voice_emotion", "voice_antispoof",
+        "speaker_verification", "coercion_matches", "risk_breakdown",
+        "baseline_metrics", "question_metrics", "fraud_triangle_scores",
+    }
+
     def to_dict(self) -> dict:
         d = {}
         for col in self.__table__.columns:
             val = getattr(self, col.name)
-            if isinstance(val, str) and col.name in (
-                "aura_transcript", "emotion_percentages", "audio_analysis_json",
-                "audio_quality", "voice_emotion", "voice_antispoof",
-                "speaker_verification", "coercion_matches", "risk_breakdown"
-            ):
+            if isinstance(val, str) and col.name in self._JSON_COLUMNS:
                 try:
                     val = json.loads(val)
                 except (json.JSONDecodeError, TypeError):
@@ -135,7 +178,50 @@ class AnalysisSession(Base):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    _migrate_add_columns()
     logger.info("Base de datos SQLite inicializada.")
+
+
+_NEW_COLUMNS = [
+    ("accessibility_mode", "BOOLEAN DEFAULT 0"),
+    ("score_model_version", "VARCHAR"),
+    ("emotional_ai_risk", "FLOAT"),
+    ("emotion_shift_score", "FLOAT"),
+    ("multimodal_emotion_consistency", "FLOAT"),
+    ("behavioral_baseline_risk", "FLOAT"),
+    ("baseline_metrics", "TEXT"),
+    ("question_metrics", "TEXT"),
+    ("fraud_triangle_risk", "FLOAT"),
+    ("fraud_triangle_scores", "TEXT"),
+    ("pressure_score", "FLOAT"),
+    ("opportunity_score", "FLOAT"),
+    ("rationalization_score", "FLOAT"),
+    ("narrative_coherence_risk", "FLOAT"),
+    ("narrative_consistency_score", "FLOAT"),
+    ("contradiction_score", "FLOAT"),
+    ("evasion_score", "FLOAT"),
+    ("incompleteness_score", "FLOAT"),
+    ("identity_liveness_risk", "FLOAT"),
+    ("quality_risk", "FLOAT"),
+    ("recommended_action", "TEXT"),
+    ("risk_explanation", "TEXT"),
+]
+
+
+def _migrate_add_columns():
+    """Add new columns to existing SQLite tables without dropping data."""
+    with engine.connect() as conn:
+        for col_name, col_type in _NEW_COLUMNS:
+            try:
+                conn.execute(
+                    __import__("sqlalchemy").text(
+                        f"ALTER TABLE analysis_sessions ADD COLUMN {col_name} {col_type}"
+                    )
+                )
+                conn.commit()
+                logger.info(f"[DB] Migración: columna '{col_name}' añadida.")
+            except Exception:
+                pass  # column already exists
 
 
 def get_db():
