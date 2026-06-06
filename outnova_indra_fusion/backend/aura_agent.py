@@ -592,21 +592,21 @@ class AuraEngine:
             with torch.no_grad():
                 output = self.llm.generate(
                     input_ids,
-                    max_new_tokens=80,
+                    max_new_tokens=120,
                     do_sample=True,
-                    temperature=0.75,
-                    top_p=0.92,
-                    repetition_penalty=1.1,
+                    temperature=0.65,
+                    top_p=0.90,
+                    repetition_penalty=1.15,
                     pad_token_id=self.tokenizer.eos_token_id,
                 )
 
             generated = output[0][input_ids.shape[-1]:]
             text = self.tokenizer.decode(generated, skip_special_tokens=True).strip()
 
-            # Cap at 50 words (allows acknowledgment + one question naturally)
+            # Cap at 60 words — enough for ack + specific reference + one question
             words = text.split()
-            if len(words) > 50:
-                text = " ".join(words[:50]) + "."
+            if len(words) > 60:
+                text = " ".join(words[:60]) + "."
 
             return text if text else self.fallback_reply(session, session.turn_count, user_text)
 

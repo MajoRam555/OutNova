@@ -19,9 +19,9 @@ INDRA_WORKERS = int(os.getenv("INDRA_WORKERS", "2"))
 MAX_SESSION_SECONDS = int(os.getenv("MAX_SESSION_SECONDS", "300"))
 
 # AURA / LLM
-AURA_LOAD_ON_START = bool(int(os.getenv("AURA_LOAD_ON_START", "0")))
-AURA_LLM_MODEL = os.getenv("AURA_LLM_MODEL", "Qwen/Qwen2.5-0.5B-Instruct")
-AURA_LLM_FALLBACK = os.getenv("AURA_LLM_FALLBACK", "microsoft/Phi-3-mini-4k-instruct")
+AURA_LOAD_ON_START = bool(int(os.getenv("AURA_LOAD_ON_START", "1")))
+AURA_LLM_MODEL = os.getenv("AURA_LLM_MODEL", "Qwen/Qwen2.5-1.5B-Instruct")
+AURA_LLM_FALLBACK = os.getenv("AURA_LLM_FALLBACK", "Qwen/Qwen2.5-0.5B-Instruct")
 
 # ML Models
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
