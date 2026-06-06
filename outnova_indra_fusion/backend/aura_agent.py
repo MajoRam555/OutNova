@@ -521,13 +521,12 @@ class AuraEngine:
                 device = get_device() if AURA_USE_GPU else "cpu"
                 torch_dtype = torch.float16 if device == "cuda" else torch.float32
 
-                tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+                tokenizer = AutoTokenizer.from_pretrained(model_id)
                 try:
                     model = AutoModelForCausalLM.from_pretrained(
                         model_id,
                         torch_dtype=torch_dtype,
                         device_map=device,
-                        trust_remote_code=True,
                         low_cpu_mem_usage=True,
                     )
                 except RuntimeError as oom:
@@ -538,7 +537,6 @@ class AuraEngine:
                             model_id,
                             torch_dtype=torch.float32,
                             device_map="cpu",
-                            trust_remote_code=True,
                             low_cpu_mem_usage=True,
                         )
                         device = "cpu"
