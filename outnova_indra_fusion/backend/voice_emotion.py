@@ -12,21 +12,35 @@ def _load_emotion_model():
     """
     Carga el modelo con AutoModelForAudioClassification para que lea el config.json
     del propio modelo y construya la arquitectura exacta (dimensiones 1024) sin mismatch.
+    Mueve el modelo a GPU si está disponible, con fallback a CPU en OOM.
     """
     global _emotion_model, _emotion_extractor
     if _emotion_model is not None:
         return _emotion_extractor, _emotion_model
 
+    import torch
     from transformers import AutoFeatureExtractor, AutoModelForAudioClassification
+    from device_manager import get_device
 
     model_id = "ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition"
+    device = get_device()
 
     _emotion_extractor = AutoFeatureExtractor.from_pretrained(model_id)
     model = AutoModelForAudioClassification.from_pretrained(model_id)
     model.eval()
 
+    try:
+        model = model.to(device)
+        logger.info(f"[EMOTION] Modelo cargado en {device}.")
+    except RuntimeError as e:
+        if "out of memory" in str(e).lower():
+            logger.warning("[EMOTION] CUDA OOM — fallback a CPU.")
+            torch.cuda.empty_cache()
+            model = model.to("cpu")
+        else:
+            raise
+
     _emotion_model = model
-    logger.info("[EMOTION] Modelo cargado correctamente con AutoModelForAudioClassification.")
     return _emotion_extractor, _emotion_model
 
 
@@ -54,6 +68,8 @@ def _wav2vec2_emotion(audio_path: str) -> dict:
     inputs = feature_extractor(
         audio, sampling_rate=16000, return_tensors="pt", padding=True
     )
+    device = model.device
+    inputs = {k: v.to(device) for k, v in inputs.items()}
 
     with torch.no_grad():
         logits = model(**inputs).logits

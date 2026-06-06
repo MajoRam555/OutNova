@@ -28,6 +28,11 @@ WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
 USE_DEEPFACE = bool(int(os.getenv("USE_DEEPFACE", "0")))
 USE_WAV2VEC2 = bool(int(os.getenv("USE_WAV2VEC2", "1")))
 
+# GPU — Whisper y Wav2Vec2 usan GPU automáticamente si está disponible.
+# AURA_USE_GPU=0 (default) → LLM en CPU (seguro para VRAM limitada).
+# AURA_USE_GPU=1 → LLM en GPU con fallback a CPU si hay OOM.
+AURA_USE_GPU = bool(int(os.getenv("AURA_USE_GPU", "0")))
+
 # Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 

@@ -93,6 +93,7 @@ outnova_indra_fusion/
 │   ├── main.py              # FastAPI + WebSocket + endpoints
 │   ├── database.py          # SQLite con SQLAlchemy
 │   ├── config.py            # Configuración centralizada
+│   ├── device_manager.py    # Detección GPU/CPU, log de CUDA, /gpu/status
 │   ├── aura_agent.py        # AURA LLM local + fallback por reglas
 │   ├── pipeline.py          # Orquestador del pipeline biométrico
 │   ├── audio_pipeline.py    # Pipeline completo de audio
@@ -135,6 +136,62 @@ AURA_LOAD_ON_START=0
 AURA_LLM_MODEL=Qwen/Qwen2.5-0.5B-Instruct
 MAX_UPLOAD_SIZE_MB=200
 LOG_LEVEL=INFO
+
+# GPU (ver sección GPU más abajo)
+AURA_USE_GPU=0
+```
+
+---
+
+## GPU / CUDA
+
+### Validar que PyTorch detecta tu GPU
+
+```python
+python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no GPU')"
+```
+
+En Windows, el Administrador de tareas puede mostrar tu NVIDIA como **GPU 1** (reservando GPU 0 para el adaptador integrado). Eso es normal — PyTorch siempre la ve como **`cuda:0`** porque enumera solo las GPUs CUDA, no las integradas.
+
+### Qué usa GPU automáticamente
+
+| Módulo | GPU automática | Notas |
+|---|---|---|
+| **Whisper** | Sí | `device=cuda` al cargar. Usa fp16 en GPU (más rápido). |
+| **Wav2Vec2** | Sí | `.to(cuda)` al cargar. Inputs movidos al device correcto. |
+| **AURA LLM** | Solo si `AURA_USE_GPU=1` | Ver abajo. |
+
+### AURA LLM y VRAM
+
+El LLM de AURA (Qwen2.5-0.5B) ocupa ~1 GB en fp16 o ~2 GB en fp32. Por defecto se carga en **CPU** para no competir con Whisper y Wav2Vec2.
+
+Si tienes 6 GB+ de VRAM libre después de cargar los otros modelos, puedes activarlo:
+
+```env
+AURA_USE_GPU=1
+```
+
+Si hay OOM, el sistema hace fallback automático a CPU y registra un warning en los logs.
+
+### Endpoint de estado GPU
+
+```
+GET http://localhost:8000/gpu/status
+```
+
+Devuelve:
+```json
+{
+  "torch_version": "2.x.x",
+  "cuda_build": "12.x",
+  "cuda_available": true,
+  "device_count": 1,
+  "active_device": "cuda",
+  "gpu_name": "NVIDIA GeForce RTX ...",
+  "vram_total_mb": 8192,
+  "vram_free_mb": 6000,
+  "vram_used_mb": 2192
+}
 ```
 
 ---
@@ -146,6 +203,7 @@ LOG_LEVEL=INFO
 | GET | `/` | Sirve el frontend HTML |
 | WS | `/ws/conversacion?session_id=X` | WebSocket AURA |
 | GET | `/health` | Estado del backend |
+| GET | `/gpu/status` | Estado de GPU / CUDA / VRAM |
 | GET | `/aura/status` | Estado del LLM AURA |
 | POST | `/aura/load` | Cargar LLM en background |
 | POST | `/upload` | Subir video de sesión |

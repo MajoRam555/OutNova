@@ -424,6 +424,9 @@ class AuraEngine:
 
     def load_llm_only(self):
         """Try to load Qwen2.5, fallback to Phi-3, fallback to rules."""
+        from device_manager import get_device
+        from config import AURA_USE_GPU
+
         models_to_try = [AURA_LLM_MODEL, AURA_LLM_FALLBACK]
         for model_id in models_to_try:
             try:
@@ -431,15 +434,35 @@ class AuraEngine:
                 from transformers import AutoModelForCausalLM, AutoTokenizer
                 import torch
 
+                device = get_device() if AURA_USE_GPU else "cpu"
+                torch_dtype = torch.float16 if device == "cuda" else torch.float32
+
                 tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-                model = AutoModelForCausalLM.from_pretrained(
-                    model_id,
-                    torch_dtype=torch.float32,
-                    device_map="cpu",
-                    trust_remote_code=True,
-                    low_cpu_mem_usage=True,
-                )
+                try:
+                    model = AutoModelForCausalLM.from_pretrained(
+                        model_id,
+                        torch_dtype=torch_dtype,
+                        device_map=device,
+                        trust_remote_code=True,
+                        low_cpu_mem_usage=True,
+                    )
+                except RuntimeError as oom:
+                    if "out of memory" in str(oom).lower():
+                        logger.warning(f"[AURA] CUDA OOM al cargar {model_id} — fallback a CPU.")
+                        torch.cuda.empty_cache()
+                        model = AutoModelForCausalLM.from_pretrained(
+                            model_id,
+                            torch_dtype=torch.float32,
+                            device_map="cpu",
+                            trust_remote_code=True,
+                            low_cpu_mem_usage=True,
+                        )
+                        device = "cpu"
+                    else:
+                        raise
+
                 model.eval()
+                logger.info(f"[AURA] LLM listo en {device}: {model_id}")
 
                 with self._lock:
                     self.tokenizer = tokenizer
@@ -448,7 +471,6 @@ class AuraEngine:
                     self.loaded_model = model_id
                     self.load_error = None
 
-                logger.info(f"[AURA] LLM listo: {model_id}")
                 return
 
             except Exception as e:
@@ -480,6 +502,8 @@ class AuraEngine:
                 text = "\n".join(f"{m['role']}: {m['content']}" for m in history)
                 text += "\nassistant:"
                 input_ids = self.tokenizer.encode(text, return_tensors="pt")
+
+            input_ids = input_ids.to(self.llm.device)
 
             with torch.no_grad():
                 output = self.llm.generate(

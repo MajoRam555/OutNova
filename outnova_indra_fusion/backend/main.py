@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from config import (AUDIO_DIR, INDRA_WORKERS, MAX_SESSION_SECONDS,
                     MAX_UPLOAD_SIZE_MB, PTT_DIR, STATIC_DIR, VIDEO_DIR, AURA_LOAD_ON_START)
+from device_manager import log_device_info, get_gpu_status
 from database import (AnalysisSession, SessionLocal, create_session_record,
                        get_db, get_session_by_client_id, init_db,
                        update_session_status)
@@ -51,6 +52,7 @@ async def lifespan(app: FastAPI):
     global _ml_executor, _aura_executor, _llm_executor
 
     logger.info("=== OutNova Indra Fusion — Iniciando backend ===")
+    log_device_info()
 
     # Create folders
     for d in [VIDEO_DIR, AUDIO_DIR, PTT_DIR, STATIC_DIR]:
@@ -137,6 +139,12 @@ async def health():
         "llm_model": status["loaded_model"],
         "deepface_available": deepface_available,
     }
+
+
+# ── GPU Status ─────────────────────────────────────────────────────────────
+@app.get("/gpu/status")
+async def gpu_status():
+    return get_gpu_status()
 
 
 # ── AURA Status ────────────────────────────────────────────────────────────
