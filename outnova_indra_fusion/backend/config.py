@@ -1,6 +1,10 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent / ".env")
+
 APP_NAME = "OutNova Indra Fusion"
 APP_VERSION = "2.4.1"
 
