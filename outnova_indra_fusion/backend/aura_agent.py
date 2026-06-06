@@ -535,7 +535,7 @@ class AuraEngine:
                 try:
                     model = _cls.from_pretrained(
                         model_id,
-                        torch_dtype=torch_dtype,
+                        dtype=torch_dtype,
                         device_map=device,
                         low_cpu_mem_usage=True,
                     )
@@ -545,7 +545,7 @@ class AuraEngine:
                         torch.cuda.empty_cache()
                         model = _cls.from_pretrained(
                             model_id,
-                            torch_dtype=torch.float32,
+                            dtype=torch.float32,
                             device_map="cpu",
                             low_cpu_mem_usage=True,
                         )
