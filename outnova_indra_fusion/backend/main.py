@@ -75,10 +75,21 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("FFmpeg NO encontrado en PATH. El pipeline de audio/video puede fallar.")
 
-    # Optional: load AURA LLM on start
+    # Log AURA engine configuration
+    from config import AURA_CLAUDE_API_KEY, AURA_CLAUDE_MODEL
+    if AURA_CLAUDE_API_KEY:
+        key_preview = AURA_CLAUDE_API_KEY[:12] + "..." + AURA_CLAUDE_API_KEY[-4:]
+        logger.info(f"[AURA] Claude API configurada — modelo: {AURA_CLAUDE_MODEL} · key: {key_preview}")
+    else:
+        logger.warning("[AURA] AURA_CLAUDE_API_KEY no configurada — usando LLM local como fallback.")
+
+    # Optional: load AURA LLM on start (fallback if Claude API fails)
     if AURA_LOAD_ON_START:
         from aura_agent import get_engine
-        logger.info("[AURA] Cargando LLM en background...")
+        if AURA_CLAUDE_API_KEY:
+            logger.info("[AURA] LLM local en standby (fallback de Claude API).")
+        else:
+            logger.info("[AURA] Cargando LLM local en background...")
         _llm_executor.submit(get_engine().load_llm_only)
 
     logger.info("Backend listo. Accede en http://localhost:8000/")
