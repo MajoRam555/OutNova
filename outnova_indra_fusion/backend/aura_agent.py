@@ -45,52 +45,60 @@ PROHIBIDO:
 
 # ── Contextual acknowledgment banks (por tipo de señal) ──────────────────────
 
+# ── Acknowledgment banks ─────────────────────────────────────────────────────
+# Formato: frases cortas que terminan en coma o conector,
+# para que fluyan naturalmente pegadas a la siguiente pregunta.
+# Ejemplo correcto:  "Gracias, y ¿en qué ciudad estás?"
+# Ejemplo incorrecto: "Gracias. ¿En qué ciudad estás?"  ← suenan a dos mensajes
+
+_ACK_BASELINE = [
+    "Anotado,",
+    "Claro,",
+    "Gracias,",
+    "Entendido,",
+    "Bien,",
+]
+
 _ACK_SHORT = [
-    "Entiendo, aunque me gustaría escucharte un poco más sobre eso.",
-    "Es una respuesta muy breve — ¿puedes contarme algo más al respecto?",
-    "¿Podrías desarrollar un poco esa idea?",
-    "Me quedé con ganas de saber más sobre lo que dijiste.",
+    "Me gustaría escuchar un poco más sobre eso —",
+    "Cuéntame algo más,",
+    "¿Puedes desarrollar eso un poco?",
 ]
 
 _ACK_STRESS = [
-    "Noto que puede ser un momento incómodo — eso es completamente normal.",
-    "Está bien si sientes algo de tensión, tomemos el tiempo que necesites.",
-    "Entiendo que esto puede sentirse un poco intimidante al principio.",
-    "Lo que describes suena como algo que te genera presión. Quiero que sepas que puedes hablar con libertad.",
+    "Escucho que esto puede sentirse incómodo, y está bien —",
+    "No hay prisa, tómate el tiempo que necesites —",
+    "Lo que describes tiene sentido, y puedes hablar con libertad —",
 ]
 
 _ACK_HESITATION = [
-    "Veo que no tienes total certeza sobre eso, y está bien.",
-    "La duda es completamente válida — no hay respuestas incorrectas aquí.",
-    "Entiendo que no sea algo fácil de precisar.",
-    "No te preocupes si no recuerdas exactamente — lo importante es tu perspectiva.",
+    "No te preocupes si no estás seguro o segura —",
+    "La duda es totalmente válida —",
+    "No hay respuesta incorrecta aquí —",
 ]
 
 _ACK_POSITIVE = [
-    "Me alegra escuchar eso.",
-    "Qué bueno que lo confirmes.",
-    "Eso es justo lo que necesitaba saber.",
-    "Perfecto, eso me ayuda mucho.",
+    "Qué bueno escuchar eso,",
+    "Me alegra que lo confirmes,",
+    "Eso me ayuda mucho,",
 ]
 
 _ACK_DETAILED = [
-    "Gracias por ese nivel de detalle, me es muy útil.",
-    "Aprecio que hayas sido tan claro/a con eso.",
-    "Esa descripción me da una imagen muy completa.",
-    "Me ayuda mucho que lo hayas explicado así.",
+    "Gracias por ese detalle,",
+    "Eso me da una imagen muy clara,",
+    "Te escuché bien,",
 ]
 
 _ACK_OTHER_PERSON = [
-    "Mencionaste que hay alguien contigo — quiero asegurarme de algo.",
-    "Antes de continuar, quiero confirmar una cosa sobre esa persona que mencionaste.",
+    "Mencionaste que hay alguien contigo —",
+    "Antes de continuar, sobre esa persona que mencionaste —",
 ]
 
 _ACK_DEFAULT = [
-    "Entiendo lo que describes.",
-    "Tiene sentido lo que dices.",
-    "Me queda claro.",
-    "Lo que describes me ayuda a entender mejor el contexto.",
-    "Bien, lo tomo en cuenta.",
+    "Lo tomo en cuenta,",
+    "Tiene sentido,",
+    "Te escucho,",
+    "Entendido,",
 ]
 
 
@@ -126,8 +134,21 @@ def _analyze_user_text(text: str) -> str:
     return "default"
 
 
-def _contextual_ack(user_text: str, turn: int) -> str:
-    """Return an acknowledgment phrase matched to the user's response signal."""
+def _contextual_ack(user_text: str, turn: int, phase: str = "") -> str:
+    """
+    Return an acknowledgment connector matched to signal and phase.
+    For baseline/practice: short factual connectors (ends in comma for natural flow).
+    For sensitive phases: more empathetic connectors.
+    """
+    # Baseline and practice: keep it brief so it flows as one sentence
+    if phase in ("baseline", "practice"):
+        signal = _analyze_user_text(user_text)
+        if signal == "stress":
+            return _ACK_STRESS[turn % len(_ACK_STRESS)]
+        if signal == "hesitation":
+            return _ACK_HESITATION[turn % len(_ACK_HESITATION)]
+        return _ACK_BASELINE[turn % len(_ACK_BASELINE)]
+
     signal = _analyze_user_text(user_text)
     bank_map = {
         "short": _ACK_SHORT,
@@ -169,119 +190,126 @@ def _needs_followup(user_text: str, phase: str) -> Optional[str]:
 #
 # Each turn is a dict with:
 #   text            — the question AURA asks
-#   phase           — conversation phase (practice / baseline / identity_context /
-#                     sensitive_dilemma / closing)
+#   phase           — practice / baseline / identity_context / sensitive_dilemma / closing
 #   question_type   — warm_up / environment / cognitive / consent / identity /
 #                     behavioral / dilemma / closing
 #   counts_for_score— whether this turn's response contributes to scoring
 #   expected_signal — what behavioral signal we're probing (or None)
 
 PHASE_TURNS = [
-    # ── PHASE 1: Practice (~30-45s, no scoring) ─────────────────────────────
+    # ── PHASE 1: Modo práctica (30-45s, sin score) ───────────────────────────
+    # Objetivo: bajar ansiedad, probar micrófono y cámara, estabilizar al usuario.
+    # Tono: muy relajado, amigable, nada formal.
     {
-        "text": "Hola, soy AURA. Voy a acompañarte en esta verificación. Antes de comenzar, hagamos una pequeña prueba. ¿Puedes decirme cómo está el tiempo hoy donde tú estás?",
+        "text": "Hola, soy Aura. No te preocupes, esto no es un examen. Vamos a probar el micrófono y la cámara antes de empezar. Salúdame cuando estés listo o lista.",
         "phase": "practice",
         "question_type": "warm_up",
         "counts_for_score": False,
         "expected_signal": None,
     },
     {
-        "text": "Perfecto, ya vi que el audio funciona bien. ¿Puedes decirme en voz alta el nombre del mes en que naciste?",
+        "text": "Perfecto, todo funciona bien. ¿Puedes contarme en dos o tres palabras cómo te sientes en este momento?",
         "phase": "practice",
         "question_type": "warm_up",
         "counts_for_score": False,
         "expected_signal": None,
     },
-    # ── PHASE 2: Baseline (~60s, only baseline metrics) ──────────────────────
+
+    # ── PHASE 2: Calibración neutral (60s, solo baseline) ────────────────────
+    # Objetivo: medir voz, ritmo, pausas, emoción neutral de la persona.
+    # Preguntas fáciles y concretas — no hay respuesta incorrecta.
     {
-        "text": "Muy bien. Ahora sí comenzamos formalmente. ¿Puedes describirme brevemente el lugar donde te encuentras en este momento?",
+        "text": "Bien, ya empezamos. Primero unos datos básicos para confirmar identidad. ¿Cuál es tu nombre completo?",
+        "phase": "baseline",
+        "question_type": "identity",
+        "counts_for_score": True,
+        "expected_signal": "baseline_speech_pattern",
+    },
+    {
+        "text": "¿En qué ciudad te encuentras en este momento?",
         "phase": "baseline",
         "question_type": "environment",
         "counts_for_score": True,
         "expected_signal": "baseline_speech_pattern",
     },
     {
-        "text": "¿Qué objeto tienes más cerca de ti ahora mismo?",
-        "phase": "baseline",
-        "question_type": "environment",
-        "counts_for_score": True,
-        "expected_signal": "baseline_speech_pattern",
-    },
-    {
-        "text": "Vamos a hacer un pequeño ejercicio. ¿Puedes deletrear la palabra CASA al revés?",
+        "text": "¿Puedes decirme la fecha de hoy?",
         "phase": "baseline",
         "question_type": "cognitive",
         "counts_for_score": True,
         "expected_signal": "cognitive_baseline",
     },
-    # ── PHASE 3: Identity context (~45s, low weight) ─────────────────────────
     {
-        "text": "Gracias. Ahora pasamos a la parte de identidad. ¿Puedes confirmarme tu nombre completo?",
-        "phase": "identity_context",
+        "text": "¿Cuál es el motivo de tu trámite hoy?",
+        "phase": "baseline",
         "question_type": "identity",
         "counts_for_score": True,
-        "expected_signal": "identity_consistency",
+        "expected_signal": "baseline_speech_pattern",
     },
     {
-        "text": "¿Cuál es la fecha de hoy con tus propias palabras?",
-        "phase": "identity_context",
-        "question_type": "cognitive",
+        "text": "¿Qué estabas haciendo justo antes de empezar esta sesión?",
+        "phase": "baseline",
+        "question_type": "behavioral",
         "counts_for_score": True,
-        "expected_signal": "temporal_orientation",
+        "expected_signal": "baseline_speech_pattern",
     },
+
+    # ── PHASE 3: Identidad y contexto (45s, peso bajo) ───────────────────────
     {
-        "text": "¿Hay alguien más contigo en este momento, o estás solo/a?",
+        "text": "¿Hay alguien más contigo en el lugar donde estás, o estás solo o sola?",
         "phase": "identity_context",
         "question_type": "consent",
         "counts_for_score": True,
         "expected_signal": "coercion_context",
     },
-    # ── PHASE 4: Sensitive dilemma (2-3 min, main scoring) ───────────────────
     {
-        "text": "Quiero asegurarme de algo importante. ¿Estás realizando esta verificación por tu propia voluntad, sin que nadie te haya pedido o presionado que lo hagas?",
-        "phase": "sensitive_dilemma",
+        "text": "¿Estás realizando este trámite por tu propia decisión?",
+        "phase": "identity_context",
         "question_type": "consent",
         "counts_for_score": True,
         "expected_signal": "coercion_pressure",
     },
+
+    # ── PHASE 4: Dilemas éticos / triángulo del fraude (2-3 min, peso principal) ──
     {
-        "text": "Te voy a hacer una pregunta un poco más personal. Si en algún momento durante esta verificación sintieras que no puedes hablar con libertad, ¿me lo harías saber de alguna manera?",
-        "phase": "sensitive_dilemma",
-        "question_type": "behavioral",
-        "counts_for_score": True,
-        "expected_signal": "coercion_pressure",
-    },
-    {
-        "text": "¿Qué estabas haciendo justo antes de comenzar este proceso hoy?",
-        "phase": "sensitive_dilemma",
-        "question_type": "behavioral",
-        "counts_for_score": True,
-        "expected_signal": "narrative_consistency",
-    },
-    {
-        "text": "¿Puedes contarme, con tus propias palabras, por qué estás realizando esta verificación hoy?",
-        "phase": "sensitive_dilemma",
-        "question_type": "dilemma",
-        "counts_for_score": True,
-        "expected_signal": "narrative_coherence",
-    },
-    {
-        "text": "Si en algún momento descubrieras que hay un error en tu cuenta o en algún proceso financiero que te involucra, ¿qué harías?",
+        "text": "Ahora vienen unas preguntas un poco más personales. No hay respuestas correctas o incorrectas, solo quiero escuchar tu perspectiva. ¿Alguna vez alguien en tu trabajo te ha pedido hacer algo que te parecía imprudente, aunque sea sin importar si lo hiciste o no?",
         "phase": "sensitive_dilemma",
         "question_type": "dilemma",
         "counts_for_score": True,
         "expected_signal": "rationalization_opportunity",
     },
-    # ── PHASE 5: Closing (~15s, no scoring) ──────────────────────────────────
     {
-        "text": "Gracias, estamos terminando. ¿Confirmas que todo lo que compartiste hoy es verdadero y que participaste de forma libre?",
+        "text": "¿Crees que hay situaciones donde romper una regla puede estar justificado?",
+        "phase": "sensitive_dilemma",
+        "question_type": "dilemma",
+        "counts_for_score": True,
+        "expected_signal": "rationalization_opportunity",
+    },
+    {
+        "text": "Si un sistema bancario te acreditara dinero por error, ¿qué harías?",
+        "phase": "sensitive_dilemma",
+        "question_type": "dilemma",
+        "counts_for_score": True,
+        "expected_signal": "rationalization_opportunity",
+    },
+    {
+        "text": "¿Puedes contarme con tus palabras por qué estás haciendo este trámite hoy?",
+        "phase": "sensitive_dilemma",
+        "question_type": "behavioral",
+        "counts_for_score": True,
+        "expected_signal": "narrative_coherence",
+    },
+
+    # ── PHASE 5: Cierre (15s, sin score) ─────────────────────────────────────
+    {
+        "text": "Casi terminamos. ¿Confirmas que todo lo que compartiste hoy es verdadero y que participaste de forma voluntaria?",
         "phase": "closing",
         "question_type": "closing",
         "counts_for_score": False,
         "expected_signal": None,
     },
     {
-        "text": "Perfecto. La verificación ha concluido. Muchas gracias por tu tiempo y cooperación.",
+        "text": "Perfecto. La sesión ha terminado. Muchas gracias por tu tiempo.",
         "phase": "closing",
         "question_type": "closing",
         "counts_for_score": False,
@@ -480,27 +508,32 @@ class AuraEngine:
 
     def fallback_reply(self, session: AuraChatSession, turn: int, user_text: str = "") -> str:
         """
-        Context-aware rule-based fallback.
-        - Checks if a follow-up is warranted before advancing to the next scripted question.
-        - Uses signal-matched acknowledgment phrases instead of generic ones.
-        Never raises.
+        Context-aware rule-based fallback. Never raises.
+        Produces ONE natural sentence (ack connector + question), not two.
         """
-        is_first_turn = turn == 0 or not user_text.strip()
-
-        if is_first_turn:
+        if turn == 0 or not user_text.strip():
             return FALLBACK_TURNS[0]
 
-        # Check if the response warrants staying on the same topic
-        followup = _needs_followup(user_text, session.current_phase)
+        phase = session.current_phase
+
+        # If the answer warrants staying on the same topic, handle first
+        followup = _needs_followup(user_text, phase)
         if followup:
-            ack = _contextual_ack(user_text, turn)
-            return f"{ack} {followup}"
+            ack = _contextual_ack(user_text, turn, phase)
+            # followup already starts as a sentence — join with space
+            return f"{ack} {followup}".strip()
 
         # Advance to next scripted question
         idx = min(turn, len(FALLBACK_TURNS) - 1)
         question = FALLBACK_TURNS[idx]
-        ack = _contextual_ack(user_text, turn)
-        return f"{ack} {question}"
+        ack = _contextual_ack(user_text, turn, phase)
+
+        # If ack ends with comma/dash, join directly as one natural flow
+        # e.g. "Anotado, ¿en qué ciudad estás?"
+        # If ack ends with em-dash, add space
+        # If ack is a full sentence (ends with . or —), add space
+        joiner = " "
+        return f"{ack}{joiner}{question}".strip()
 
     def generate_reply(self, session: AuraChatSession, user_text: str) -> str:
         """
