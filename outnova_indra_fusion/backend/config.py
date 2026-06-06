@@ -36,7 +36,7 @@ AURA_USE_GPU = bool(int(os.getenv("AURA_USE_GPU", "0")))
 # TTS — síntesis de voz para AURA usando edge-tts (Microsoft Neural, gratis)
 # Voces: es-ES-ElviraNeural, es-ES-AlvaroNeural, es-MX-DaliaNeural, es-MX-JorgeNeural
 USE_TTS = bool(int(os.getenv("USE_TTS", "1")))
-TTS_VOICE = os.getenv("TTS_VOICE", "es-ES-ElviraNeural")
+TTS_VOICE = os.getenv("TTS_VOICE", "es-MX-DaliaNeural")
 
 # Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
