@@ -942,33 +942,22 @@
       justify-content: flex-end;
     }
 
-    /* ─── PTT BUTTON ─────────────────────────────────────── */
-    .btn-ptt {
+    /* ─── VAD INDICATOR ─────────────────────────────────── */
+    .vad-indicator {
       flex-shrink: 0;
       width: 38px;
       height: 38px;
-      padding: 0;
       border-radius: 50%;
-      background: var(--surface-secondary);
-      color: var(--text-secondary);
-      border: 1.5px solid var(--border);
-      cursor: pointer;
+      background: #DCFCE7;
+      color: var(--success);
+      border: 1.5px solid #86EFAC;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.15s ease;
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
+      transition: all 0.2s ease;
     }
 
-    .btn-ptt:hover:not(:disabled) {
-      background: #DCFCE7;
-      color: var(--success);
-      border-color: #86EFAC;
-    }
-
-    .btn-ptt.recording {
+    .vad-indicator.vad-active {
       background: var(--error);
       color: #fff;
       border-color: var(--error);
@@ -976,14 +965,11 @@
       animation: ptt-pulse 0.9s ease-in-out infinite;
     }
 
-    .btn-ptt:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    @keyframes ptt-pulse {
-      0%, 100% { box-shadow: 0 0 0 4px rgba(220,38,38,0.18); }
-      50%       { box-shadow: 0 0 0 8px rgba(220,38,38,0.06); }
+    .vad-indicator.vad-blocked {
+      background: var(--surface-secondary);
+      color: var(--text-secondary);
+      border-color: var(--border);
+      opacity: 0.5;
     }
 
     .ptt-hint {
@@ -1438,11 +1424,11 @@
               <!-- Messages injected here -->
             </div>
             <div class="input-area">
-              <button class="btn-ptt" id="btn-ptt" title="Mantén presionado para hablar">
+              <div class="vad-indicator vad-blocked" id="vad-indicator" title="Detección de voz automática">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
                 </svg>
-              </button>
+              </div>
               <input type="text" class="msg-input" id="msg-input" placeholder="Escribe tu respuesta..." autocomplete="off" />
               <button class="btn btn-primary" id="btn-send-msg">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1450,7 +1436,7 @@
                 </svg>
               </button>
             </div>
-            <div class="ptt-hint" id="ptt-hint">Mantén el micrófono para hablar</div>
+            <div class="ptt-hint" id="ptt-hint">Habla cuando quieras</div>
           </div>
         </div>
 
@@ -1636,7 +1622,7 @@
   const msgInput        = $('msg-input');
   const btnSendMsg      = $('btn-send-msg');
   const btnEndSession   = $('btn-end-session');
-  const btnPtt          = $('btn-ptt');
+  const vadIndicator    = $('vad-indicator');
   const pttHint         = $('ptt-hint');
 
   // Phase 3
@@ -1669,16 +1655,16 @@
   let currentNoiseRaw  = 0;
   let isSpeaking       = false;
   let auraState        = 'idle';
-  let pttAudioCtx      = null;
-  let pttAnalyser      = null;
-  let pttFreqData      = null;
-
-  // PTT state
-  let pttRecorder      = null;
-  let pttChunks        = [];
-  let pttActive        = false;
+  // VAD state
+  let vadRecorder      = null;
+  let vadChunks        = [];
+  let vadRecording     = false;
+  let vadSilenceTimer  = null;
+  let vadSpeechStart   = null;
+  let vadCooldown      = false;
+  let vadMimeType      = '';
+  let vadLevel         = 0;
   let _currentAudio    = null;
-  let pttMimeType      = '';
 
   /* ════════════════════════════════════════════════════════
      HELPERS
@@ -1885,6 +1871,9 @@
 
     // Connect WebSocket
     connectWebSocket();
+
+    // Start VAD after a brief delay (let WS connect first)
+    setTimeout(startVAD, 800);
   }
 
   /* ════════════════════════════════════════════════════════
@@ -1998,6 +1987,8 @@
             speakText(text);
           }
         }
+        // Release VAD cooldown — AURA finished generating (audio end releases isSpeaking)
+        vadCooldown = false;
         break;
       }
 
@@ -2170,9 +2161,15 @@
   });
 
   /* ════════════════════════════════════════════════════════
-     PUSH-TO-TALK
+     VOICE ACTIVITY DETECTION (VAD)
+     — micrófono siempre abierto, detecta habla automáticamente
   ════════════════════════════════════════════════════════ */
-  function getPttMimeType() {
+  const VAD_SPEECH_THRESHOLD = 0.012; // RMS mínimo para considerar habla
+  const VAD_SILENCE_MS       = 1500;  // silencio para finalizar utterance
+  const VAD_MIN_SPEECH_MS    = 400;   // duración mínima para procesar
+  const VAD_MAX_RECORD_MS    = 45000; // límite de seguridad por grabación
+
+  function getVadMimeType() {
     const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg', 'audio/mp4'];
     for (const t of types) {
       if (MediaRecorder.isTypeSupported(t)) return t;
@@ -2180,79 +2177,163 @@
     return '';
   }
 
-  function pttStart() {
-    if (pttActive || !mediaStream) return;
+  function setVadIndicator(state) {
+    // state: 'idle' | 'active' | 'blocked'
+    vadIndicator.classList.remove('vad-active', 'vad-blocked');
+    if (state === 'active')  vadIndicator.classList.add('vad-active');
+    if (state === 'blocked') vadIndicator.classList.add('vad-blocked');
+  }
+
+  function startVAD() {
+    if (!mediaStream) return;
     const audioTrack = mediaStream.getAudioTracks()[0];
     if (!audioTrack) return;
 
-    pttMimeType = getPttMimeType();
-    const audioStream = new MediaStream([audioTrack]);
-    const opts = pttMimeType ? { mimeType: pttMimeType } : {};
+    let vadStream;
     try {
-      pttRecorder = new MediaRecorder(audioStream, opts);
+      vadStream = new MediaStream([audioTrack]);
+    } catch (e) { return; }
+
+    let vadAudioCtx;
+    let vadAnalyser;
+    try {
+      vadAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = vadAudioCtx.createMediaStreamSource(vadStream);
+      vadAnalyser = vadAudioCtx.createAnalyser();
+      vadAnalyser.fftSize = 512;
+      vadAnalyser.smoothingTimeConstant = 0.3;
+      source.connect(vadAnalyser);
     } catch (e) {
-      pttRecorder = new MediaRecorder(audioStream);
+      console.error('VAD AudioContext error:', e);
+      return;
     }
 
-    pttChunks = [];
-    pttRecorder.ondataavailable = e => {
-      if (e.data && e.data.size > 0) pttChunks.push(e.data);
+    const buffer = new Float32Array(vadAnalyser.fftSize);
+
+    // Store analyser reference for canvas bubble
+    window._vadAnalyser = vadAnalyser;
+
+    setVadIndicator('idle');
+    pttHint.textContent = 'Habla cuando quieras';
+
+    function tick() {
+      if (!vadAudioCtx || vadAudioCtx.state === 'closed') return;
+      requestAnimationFrame(tick);
+
+      vadAnalyser.getFloatTimeDomainData(buffer);
+      let sum = 0;
+      for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
+      const rms = Math.sqrt(sum / buffer.length);
+      vadLevel = rms;
+
+      const canListen = !isSpeaking
+        && auraState !== 'speaking'
+        && auraState !== 'thinking'
+        && !vadCooldown;
+
+      // Speech start
+      if (!vadRecording && canListen && rms > VAD_SPEECH_THRESHOLD) {
+        vadStartRecording(vadStream);
+      }
+
+      // Speech end detection
+      if (vadRecording) {
+        if (rms > VAD_SPEECH_THRESHOLD) {
+          if (vadSilenceTimer) { clearTimeout(vadSilenceTimer); vadSilenceTimer = null; }
+        } else {
+          if (!vadSilenceTimer) {
+            vadSilenceTimer = setTimeout(() => {
+              vadSilenceTimer = null;
+              vadStopRecording();
+            }, VAD_SILENCE_MS);
+          }
+        }
+        // Safety cap
+        if (vadSpeechStart && Date.now() - vadSpeechStart > VAD_MAX_RECORD_MS) {
+          vadStopRecording();
+        }
+      }
+
+      // Update indicator state
+      if (vadRecording) {
+        setVadIndicator('active');
+      } else if (!canListen) {
+        setVadIndicator('blocked');
+      } else {
+        setVadIndicator('idle');
+      }
+    }
+
+    tick();
+  }
+
+  function vadStartRecording(vadStream) {
+    if (vadRecording || !vadStream) return;
+    vadMimeType = getVadMimeType();
+    const opts = vadMimeType ? { mimeType: vadMimeType } : {};
+    try {
+      vadRecorder = new MediaRecorder(vadStream, opts);
+    } catch (e) {
+      vadRecorder = new MediaRecorder(vadStream);
+    }
+    vadChunks = [];
+    vadRecorder.ondataavailable = e => {
+      if (e.data && e.data.size > 0) vadChunks.push(e.data);
     };
-    pttRecorder.onstop = pttUploadAndSend;
-    pttRecorder.start();
-
-    // Visual-level analyser for the canvas bubble
-    try {
-      pttAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const pttSrc = pttAudioCtx.createMediaStreamSource(audioStream);
-      pttAnalyser = pttAudioCtx.createAnalyser();
-      pttAnalyser.fftSize = 256;
-      pttAnalyser.smoothingTimeConstant = 0.5;
-      pttSrc.connect(pttAnalyser);
-      pttFreqData = new Uint8Array(pttAnalyser.frequencyBinCount);
-    } catch (e) {
-      pttAudioCtx = null; pttAnalyser = null; pttFreqData = null;
-    }
-
-    pttActive = true;
-    btnPtt.classList.add('recording');
-    pttHint.textContent = 'Grabando... suelta para enviar';
+    vadRecorder.onstop = vadUploadAndSend;
+    vadRecorder.start();
+    vadRecording  = true;
+    vadCooldown   = true;
+    vadSpeechStart = Date.now();
+    pttHint.textContent = 'Escuchando...';
     pttHint.classList.add('active');
     setAuraState('listening');
   }
 
-  function pttStop() {
-    if (!pttActive || !pttRecorder) return;
-    pttActive = false;
-    btnPtt.classList.remove('recording');
-    pttHint.textContent = 'Procesando...';
+  function vadStopRecording() {
+    if (!vadRecording || !vadRecorder) return;
+    const duration = vadSpeechStart ? Date.now() - vadSpeechStart : 0;
+    vadRecording  = false;
+    vadSpeechStart = null;
+    if (vadSilenceTimer) { clearTimeout(vadSilenceTimer); vadSilenceTimer = null; }
     pttHint.classList.remove('active');
-    setAuraState('thinking');
 
-    // Tear down visual-level analyser
-    if (pttAudioCtx) {
-      pttAudioCtx.close().catch(() => {});
-      pttAudioCtx = null; pttAnalyser = null; pttFreqData = null;
-    }
-
-    if (pttRecorder.state !== 'inactive') {
-      pttRecorder.stop();
-    }
-  }
-
-  async function pttUploadAndSend() {
-    if (pttChunks.length === 0) {
-      pttHint.textContent = 'Mantén el micrófono para hablar';
+    if (duration < VAD_MIN_SPEECH_MS) {
+      // Too short — discard silently
+      const staleRecorder = vadRecorder;
+      vadRecorder = null;
+      vadCooldown = false;
+      if (staleRecorder.state !== 'inactive') {
+        staleRecorder.ondataavailable = null;
+        staleRecorder.onstop = () => {};
+        staleRecorder.stop();
+      }
+      vadChunks = [];
+      pttHint.textContent = 'Habla cuando quieras';
+      setAuraState('idle');
       return;
     }
 
-    const mime = pttMimeType || 'audio/webm';
+    pttHint.textContent = 'Procesando...';
+    setAuraState('thinking');
+    if (vadRecorder.state !== 'inactive') vadRecorder.stop();
+  }
+
+  async function vadUploadAndSend() {
+    if (vadChunks.length === 0) {
+      pttHint.textContent = 'Habla cuando quieras';
+      setAuraState('idle');
+      vadCooldown = false;
+      return;
+    }
+
+    const mime = vadMimeType || 'audio/webm';
     const ext  = mime.includes('ogg') ? 'ogg' : mime.includes('mp4') ? 'mp4' : 'webm';
-    const blob = new Blob(pttChunks, { type: mime });
-    pttChunks  = [];
+    const blob = new Blob(vadChunks, { type: mime });
+    vadChunks  = [];
 
     const fd = new FormData();
-    fd.append('audio', blob, `ptt_${clientSessionId}.${ext}`);
+    fd.append('audio', blob, `vad_${clientSessionId}.${ext}`);
     fd.append('session_id', clientSessionId);
 
     try {
@@ -2269,35 +2350,27 @@
 
       if (!text) {
         setAuraState('idle');
-        setAuraStatus('No se detectó voz. Intenta de nuevo.');
-        pttHint.textContent = 'Mantén el micrófono para hablar';
+        setAuraStatus('No se detectó texto. Habla de nuevo.');
+        pttHint.textContent = 'Habla cuando quieras';
+        vadCooldown = false;
         return;
       }
 
-      addMessage('user', text, 'push_to_talk');
+      addMessage('user', text, 'voice_auto');
 
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'user_text', text, source: 'push_to_talk' }));
+        ws.send(JSON.stringify({ type: 'user_text', text, source: 'voice_auto' }));
       }
-
+      // auraState will go to 'thinking' which blocks VAD; cooldown released on aura_turn
     } catch (err) {
-      console.error('PTT transcription error:', err);
+      console.error('VAD transcription error:', err);
       setAuraState('idle');
-      setAuraStatus('Error en PTT: ' + err.message);
+      setAuraStatus('Error: ' + err.message);
+      vadCooldown = false;
     } finally {
-      pttHint.textContent = 'Mantén el micrófono para hablar';
+      pttHint.textContent = 'Habla cuando quieras';
     }
   }
-
-  // PTT mouse events
-  btnPtt.addEventListener('mousedown', e => { e.preventDefault(); pttStart(); });
-  btnPtt.addEventListener('mouseup',   e => { e.preventDefault(); pttStop();  });
-  btnPtt.addEventListener('mouseleave', e => { if (pttActive) pttStop(); });
-
-  // PTT touch events
-  btnPtt.addEventListener('touchstart', e => { e.preventDefault(); pttStart(); }, { passive: false });
-  btnPtt.addEventListener('touchend',   e => { e.preventDefault(); pttStop();  }, { passive: false });
-  btnPtt.addEventListener('touchcancel', e => { if (pttActive) pttStop(); }, { passive: false });
 
   /* ════════════════════════════════════════════════════════
      END SESSION → PHASE 3
@@ -2432,11 +2505,8 @@
     let idlePhase = 0;
 
     function getPttLevel() {
-      if (!pttAnalyser || !pttFreqData) return 0;
-      pttAnalyser.getByteFrequencyData(pttFreqData);
-      let sum = 0;
-      for (let i = 0; i < pttFreqData.length; i++) sum += pttFreqData[i];
-      return Math.min(1, (sum / pttFreqData.length) / 80);
+      // Uses live VAD RMS for bubble animation while user is speaking
+      return Math.min(1, vadLevel * 55);
     }
 
     function draw(level) {
@@ -2445,7 +2515,7 @@
 
       const cx = W / 2, cy = H / 2;
       const baseR = Math.min(W, H) * 0.28;
-      const pulse = (pttActive || isSpeaking)
+      const pulse = (vadRecording || isSpeaking)
         ? level * 28
         : Math.sin(idlePhase) * 6;
       const r = baseR + pulse;
@@ -2479,14 +2549,14 @@
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      if (pttActive || isSpeaking) idlePhase += 0.08;
+      if (vadRecording || isSpeaking) idlePhase += 0.08;
       else if (auraState === 'thinking') idlePhase += 0.05;
       else idlePhase += 0.025;
     }
 
     function loop() {
       let level = 0;
-      if (pttActive) {
+      if (vadRecording) {
         level = getPttLevel();
       } else if (isSpeaking) {
         const t = Date.now();
