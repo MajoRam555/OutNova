@@ -3,6 +3,69 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+# Cache para no recargar el modelo en cada llamada
+_emotion_model = None
+_emotion_extractor = None
+
+
+def _load_emotion_model():
+    """
+    Carga Wav2Vec2ForSequenceClassification remapeando las keys del checkpoint.
+
+    El checkpoint de ehcalabres fue guardado con una cabeza diferente:
+      classifier.dense.*  →  projector.*
+      classifier.output.* →  classifier.*
+
+    Al remapar, los pesos entrenados llegan a las capas correctas.
+    """
+    global _emotion_model, _emotion_extractor
+    if _emotion_model is not None:
+        return _emotion_extractor, _emotion_model
+
+    import torch
+    import warnings
+    from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForSequenceClassification
+
+    model_id = "ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition"
+
+    _emotion_extractor = Wav2Vec2FeatureExtractor.from_pretrained(model_id)
+
+    # Cargar arquitectura (ignore_mismatched_sizes suprime el warning inicial)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = Wav2Vec2ForSequenceClassification.from_pretrained(
+            model_id,
+            ignore_mismatched_sizes=True,
+        )
+
+    # Remapar pesos del checkpoint para llenar las capas correctas
+    try:
+        from huggingface_hub import hf_hub_download
+
+        ckpt_file = hf_hub_download(repo_id=model_id, filename="pytorch_model.bin")
+        raw_state = torch.load(ckpt_file, map_location="cpu", weights_only=True)
+
+        remapped = {}
+        for k, v in raw_state.items():
+            if k.startswith("classifier.dense."):
+                remapped[k.replace("classifier.dense.", "projector.")] = v
+            elif k.startswith("classifier.output."):
+                remapped[k.replace("classifier.output.", "classifier.")] = v
+            else:
+                remapped[k] = v
+
+        missing, unexpected = model.load_state_dict(remapped, strict=False)
+        logger.info(
+            f"[EMOTION] Modelo cargado con pesos remapeados — "
+            f"missing={len(missing)}, unexpected={len(unexpected)}"
+        )
+    except Exception as e:
+        logger.warning(f"[EMOTION] Remapeo de pesos falló ({e}), usando pesos parciales.")
+
+    model.eval()
+    _emotion_model = model
+    return _emotion_extractor, _emotion_model
+
 
 def analyze_voice_emotion(audio_path: str) -> dict:
     """
@@ -16,16 +79,25 @@ def analyze_voice_emotion(audio_path: str) -> dict:
 
 
 def _wav2vec2_emotion(audio_path: str) -> dict:
-    from transformers import pipeline
     import torch
+    import librosa
 
-    classifier = pipeline(
-        "audio-classification",
-        model="ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition",
-        device=-1,
+    feature_extractor, model = _load_emotion_model()
+
+    audio, sr = librosa.load(audio_path, sr=16000, mono=True)
+    if len(audio) < 1600:
+        raise ValueError("Audio demasiado corto para análisis emocional.")
+
+    inputs = feature_extractor(
+        audio, sampling_rate=16000, return_tensors="pt", padding=True
     )
-    results = classifier(audio_path)
-    scores = {r["label"]: round(r["score"], 4) for r in results}
+
+    with torch.no_grad():
+        logits = model(**inputs).logits
+
+    probs = torch.softmax(logits, dim=-1)[0]
+    id2label = model.config.id2label
+    scores = {id2label[i]: round(float(p), 4) for i, p in enumerate(probs)}
     dominant = max(scores, key=scores.get) if scores else "unknown"
 
     return {
