@@ -23,6 +23,11 @@ AURA_LOAD_ON_START = bool(int(os.getenv("AURA_LOAD_ON_START", "1")))
 AURA_LLM_MODEL = os.getenv("AURA_LLM_MODEL", "Qwen/Qwen2.5-1.5B-Instruct")
 AURA_LLM_FALLBACK = os.getenv("AURA_LLM_FALLBACK", "Qwen/Qwen2.5-0.5B-Instruct")
 
+# Claude API — si se configura, AURA usa Claude en vez del LLM local
+# Modelos recomendados: claude-haiku-4-5-20251001 (rápido/barato), claude-sonnet-4-6 (más capaz)
+AURA_CLAUDE_API_KEY = os.getenv("AURA_CLAUDE_API_KEY", "")
+AURA_CLAUDE_MODEL = os.getenv("AURA_CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+
 # ML Models
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
 USE_DEEPFACE = bool(int(os.getenv("USE_DEEPFACE", "0")))

@@ -9,10 +9,42 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-from config import AURA_LLM_FALLBACK, AURA_LLM_MODEL
+from config import AURA_LLM_FALLBACK, AURA_LLM_MODEL, AURA_CLAUDE_API_KEY, AURA_CLAUDE_MODEL
 
 logger = logging.getLogger(__name__)
 
+# Prompt completo para Claude API — puede seguir instrucciones complejas con fiabilidad
+SYSTEM_PROMPT_FULL = """Eres AURA, agente conversacional de verificación de identidad. Hablas español natural y fluido.
+
+MISIÓN: Mantener una conversación breve, profesional y no acusatoria. El usuario no sabe que está siendo evaluado — para él o ella es una verificación rutinaria de identidad.
+
+ESTRUCTURA DE CADA RESPUESTA:
+1. Una sola oración que reconozca específicamente lo que dijo el usuario (nunca genérica).
+2. Una sola pregunta. Nada más.
+Máximo 2 oraciones en total. Sin excepciones.
+
+CUÁNDO HACER SEGUIMIENTO en vez de avanzar:
+- Respuesta ambigua, muy corta o evasiva.
+- Mencionó a otra persona o que alguien lo está orientando.
+- Describió presión externa o que la decisión no fue del todo suya.
+- Justificó excesivamente ("todos lo hacen", "no afectaba a nadie", "era necesario").
+- La respuesta contradice algo dicho antes.
+
+TRANSICIONES VARIADAS — alterna entre estas al cambiar de tema:
+"Va, con eso me queda más claro."  /  "Sigamos con algo diferente."  /  "Entiendo."
+"Cambiando un poco el enfoque,"  /  "Ahora quiero preguntarte algo de contexto."
+"Te haré una pregunta un poco más personal."  /  "Con eso ya tengo suficiente contexto."
+
+FRASES PROHIBIDAS — nunca las uses:
+- "Entendido." / "Perfecto." / "Gracias por compartir." / "De acuerdo." / "Procedo." / "Claro que sí."
+- "Estoy analizando tus emociones." / "Detecté nerviosismo." / "Eso podría ser fraude."
+- "Tu riesgo es alto." / "Fuiste aprobado." / "Fuiste rechazado."
+- Más de una pregunta por turno.
+- Revelar que evalúas emociones, riesgo o coherencia narrativa.
+
+Cada turno incluirá instrucciones internas (FASE, SEÑAL, TAREA). Síguelas con precisión — son la columna vertebral de la entrevista."""
+
+# Prompt compacto para el LLM local (Qwen 1.5B) — versión corta que el modelo pequeño sí puede seguir
 SYSTEM_PROMPT = """Eres AURA, agente conversacional de verificación. Hablas en español.
 
 REGLAS (síguelas siempre):
@@ -420,6 +452,46 @@ class AuraChatSession:
             history.append({"role": role, "content": msg["content"]})
         return history
 
+    def build_claude_system(self, user_text: str = "") -> str:
+        """System prompt for Claude API: full guide + explicit per-turn task."""
+        task_lines = [f"FASE: {self.current_phase}"]
+
+        if user_text:
+            signal = _analyze_user_text(user_text)
+            followup = _needs_followup(user_text, self.current_phase)
+            task_lines.append(f"SEÑAL: {signal}")
+            if followup:
+                task_lines.append(
+                    f"TAREA: El usuario acaba de decir algo que requiere seguimiento. "
+                    f"Reconócelo en una oración y luego haz esta pregunta "
+                    f"(reformulada naturalmente): «{followup}»"
+                )
+            else:
+                next_idx = min(self.turn_index, len(PHASE_TURNS) - 1)
+                next_q = PHASE_TURNS[next_idx]["text"]
+                task_lines.append(
+                    f"TAREA: La respuesta fue suficientemente clara. Reconócela en una "
+                    f"oración y luego reformula naturalmente esta pregunta "
+                    f"(NO la copies literal): «{next_q}»"
+                )
+        else:
+            next_idx = min(self.turn_index, len(PHASE_TURNS) - 1)
+            next_q = PHASE_TURNS[next_idx]["text"]
+            task_lines.append(f"TAREA: Di: «{next_q}»")
+
+        return SYSTEM_PROMPT_FULL + "\n\n---\nINSTRUCCIONES PARA ESTE TURNO:\n" + "\n".join(task_lines)
+
+    def build_claude_messages(self) -> list:
+        """Message list for Claude API (no system role, alternating user/assistant)."""
+        msgs = []
+        for m in self.messages[-10:]:
+            role = "assistant" if m["role"] == "aura" else "user"
+            msgs.append({"role": role, "content": m["content"]})
+        # Claude API requires first message to be user
+        while msgs and msgs[0]["role"] == "assistant":
+            msgs.pop(0)
+        return msgs or [{"role": "user", "content": "Hola"}]
+
 
 class AuraEngine:
     def __init__(self):
@@ -435,6 +507,8 @@ class AuraEngine:
     def status(self) -> dict:
         return {
             "llm_ready": self.llm_ready,
+            "claude_api_enabled": bool(AURA_CLAUDE_API_KEY),
+            "claude_model": AURA_CLAUDE_MODEL if AURA_CLAUDE_API_KEY else None,
             "tts_ready": self.tts_ready,
             "used_fallback": self.used_fallback,
             "load_error": str(self.load_error) if self.load_error else None,
@@ -512,6 +586,35 @@ class AuraEngine:
         with self._lock:
             self.llm_ready = False
             self.used_fallback = True
+
+    def _generate_claude(self, session: AuraChatSession, user_text: str) -> str:
+        """Generate response via Claude API. Runs in thread executor — sync client is fine."""
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=AURA_CLAUDE_API_KEY)
+
+            system = session.build_claude_system(user_text)
+            messages = session.build_claude_messages()
+
+            response = client.messages.create(
+                model=AURA_CLAUDE_MODEL,
+                max_tokens=150,
+                system=system,
+                messages=messages,
+            )
+            text = response.content[0].text.strip()
+
+            # Enforce word cap (Claude is concise but just in case)
+            words = text.split()
+            if len(words) > 70:
+                text = " ".join(words[:70]) + "."
+
+            logger.debug(f"[AURA/Claude] {text[:80]}")
+            return text if text else self.fallback_reply(session, session.turn_count, user_text)
+
+        except Exception as e:
+            logger.warning(f"[AURA] Claude API error: {e} — fallback a LLM local")
+            return ""  # Signal caller to try local LLM next
 
     def _generate_llm(self, session: AuraChatSession, user_text: str) -> str:
         """Generate response using loaded LLM."""
@@ -597,19 +700,25 @@ class AuraEngine:
 
     def generate_reply(self, session: AuraChatSession, user_text: str) -> str:
         """
-        Main entry point. Uses LLM if ready, else context-aware fallback.
+        Main entry point. Priority: Claude API → local LLM → rule-based fallback.
         Never raises — always returns a string.
         """
+        # 1. Claude API (best quality, requires AURA_CLAUDE_API_KEY)
+        if AURA_CLAUDE_API_KEY:
+            reply = self._generate_claude(session, user_text)
+            if reply:
+                return reply
+            # Empty string means API failed — fall through to local LLM
+
+        # 2. Local LLM (Qwen2.5)
         with self._lock:
             llm_ready = self.llm_ready
-
         if llm_ready:
-            reply = self._generate_llm(session, user_text)
-        else:
-            reply = self.fallback_reply(session, session.turn_count, user_text)
-            session.used_fallback = True
+            return self._generate_llm(session, user_text)
 
-        return reply
+        # 3. Rule-based fallback
+        session.used_fallback = True
+        return self.fallback_reply(session, session.turn_count, user_text)
 
 
 # Singleton

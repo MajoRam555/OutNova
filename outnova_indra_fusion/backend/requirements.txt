@@ -41,5 +41,8 @@ plotly>=5.20.0
 # TTS — síntesis de voz neural para AURA
 edge-tts>=6.1.0
 
+# Claude API — LLM conversacional de alta calidad para AURA
+anthropic>=0.40.0
+
 # Utils
 tqdm>=4.66.0
