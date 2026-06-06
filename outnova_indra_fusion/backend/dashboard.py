@@ -374,20 +374,23 @@ with cd:
     if st.button("⏳ Pendiente", use_container_width=True):
         if patch_status(selected_id, "Pendiente", "Marcado pendiente."): st.rerun()
 
-# ── Delete session ─────────────────────────────────────────────────────────────
+# ── Delete session ─────────────────────────────────────────────────────────[...]
 with st.expander("⚠️ Zona de peligro"):
     st.markdown(
         f'<div style="font-size:13px;color:#991B1B;margin-bottom:10px;">'
         f'Esto eliminará permanentemente la sesión <strong>#{selected_id}</strong> y todos sus datos. No se puede deshacer.</div>',
         unsafe_allow_html=True,
     )
-    confirm_delete = st.checkbox(f"Confirmo que quiero eliminar la sesión #{selected_id}", key="confirm_delete")
-    if st.button("🗑 Eliminar sesión", disabled=not confirm_delete, use_container_width=True):
-        if delete_session(selected_id):
-            st.success(f"Sesión #{selected_id} eliminada.")
-            st.rerun()
-        else:
-            st.error("No se pudo eliminar la sesión.")
+    col_del_confirm, col_del_btn = st.columns([2, 1])
+    with col_del_confirm:
+        confirm_delete = st.checkbox(f"Confirmo que quiero eliminar la sesión #{selected_id}", key="confirm_delete")
+    with col_del_btn:
+        if st.button("🗑 Eliminar sesión", disabled=not confirm_delete, use_container_width=True):
+            if delete_session(selected_id):
+                st.success(f"Sesión #{selected_id} eliminada.")
+                st.rerun()
+            else:
+                st.error("No se pudo eliminar la sesión.")
 
 
 # ── Metrics row ───────────────────────────────────────────────────────────────
