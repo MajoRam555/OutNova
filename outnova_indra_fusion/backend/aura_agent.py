@@ -638,10 +638,12 @@ class AuraEngine:
                 input_ids = self.tokenizer.encode(text, return_tensors="pt")
 
             input_ids = input_ids.to(self.llm.device)
+            attention_mask = torch.ones_like(input_ids)
 
             with torch.no_grad():
                 output = self.llm.generate(
                     input_ids,
+                    attention_mask=attention_mask,
                     max_new_tokens=120,
                     do_sample=True,
                     temperature=0.65,
