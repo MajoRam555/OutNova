@@ -316,6 +316,16 @@ reason_row = (f'<div style="margin-top:12px;padding:10px 14px;background:#F8FAFC
               f'border:1px solid #E5E7EB;border-radius:8px;font-size:13px;">{reason}</div>'
               if reason else "")
 
+accessibility_badge = '<span class="on-badge on-blu">&#9855; Accesibilidad</span>' if accessibility else ''
+risk_level_text = (
+    "Bajo riesgo" if r_cls == "c-ok" else
+    "Riesgo medio" if r_cls == "c-mid" else
+    "Alto riesgo" if r_cls == "c-bad" else
+    "Sin score"
+)
+session_id_display = (s.get("client_session_id") or "—")[:24]
+created_at_display = (s.get("created_at") or "—")[:19].replace("T", " ")
+
 st.markdown(f"""
 <div class="on-card-lg">
   <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;">
@@ -325,22 +335,17 @@ st.markdown(f"""
       <div class="on-card-sub">Panel de revisión biométrica y conversacional</div>
       <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         {badge(status, s_cls)}
-        {'<span class="on-badge on-blu">♿ Accesibilidad</span>' if accessibility else ''}
+        {accessibility_badge}
         <span style="font-size:11px;color:#9CA3AF;">
-          ID: <code style="background:#F1F5F9;padding:1px 6px;border-radius:4px;color:#374151;font-size:11px;">
-            {s.get('client_session_id','—')[:24]}</code>
+          ID: <code style="background:#F1F5F9;padding:1px 6px;border-radius:4px;color:#374151;font-size:11px;">{session_id_display}</code>
         </span>
-        <span style="font-size:11px;color:#9CA3AF;">{s.get('created_at','—')[:19].replace('T',' ')}</span>
-        <span style="font-size:10px;color:#9CA3AF;background:#F1F5F9;padding:1px 7px;border-radius:999px;border:1px solid #E5E7EB;">
-          {score_model}
-        </span>
+        <span style="font-size:11px;color:#9CA3AF;">{created_at_display}</span>
+        <span style="font-size:10px;color:#9CA3AF;background:#F1F5F9;padding:1px 7px;border-radius:999px;border:1px solid #E5E7EB;">{score_model}</span>
       </div>
     </div>
     <div style="text-align:right;">
       <div class="on-risk {r_cls}">{score_str}<span style="font-size:16px;font-weight:500">/100</span></div>
-      <div style="font-size:11px;color:#9CA3AF;margin-top:4px;">
-        {'Bajo riesgo' if r_cls=='c-ok' else 'Riesgo medio' if r_cls=='c-mid' else 'Alto riesgo' if r_cls=='c-bad' else 'Sin score'}
-      </div>
+      <div style="font-size:11px;color:#9CA3AF;margin-top:4px;">{risk_level_text}</div>
     </div>
   </div>
   {reason_row}
