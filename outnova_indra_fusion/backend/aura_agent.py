@@ -516,6 +516,12 @@ class AuraEngine:
             try:
                 logger.info(f"[AURA] Intentando cargar LLM: {model_id}")
                 from transformers import AutoModelForCausalLM, AutoTokenizer
+                # Explicit import registers Qwen2ForCausalLM in the auto-class
+                # registry, fixing "Could not import module" on newer transformers.
+                try:
+                    from transformers import Qwen2ForCausalLM  # noqa: F401
+                except ImportError:
+                    pass
                 import torch
 
                 device = get_device() if AURA_USE_GPU else "cpu"
