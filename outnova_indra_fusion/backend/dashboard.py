@@ -225,6 +225,13 @@ def patch_status(sid: int, status: str, reason: str = "") -> bool:
     except Exception:
         return False
 
+def delete_session(sid: int) -> bool:
+    try:
+        r = requests.delete(f"{API_BASE}/sessions/{sid}", timeout=5)
+        return r.ok
+    except Exception:
+        return False
+
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -366,6 +373,21 @@ with cc:
 with cd:
     if st.button("⏳ Pendiente", use_container_width=True):
         if patch_status(selected_id, "Pendiente", "Marcado pendiente."): st.rerun()
+
+# ── Delete session ─────────────────────────────────────────────────────────────
+with st.expander("⚠️ Zona de peligro"):
+    st.markdown(
+        f'<div style="font-size:13px;color:#991B1B;margin-bottom:10px;">'
+        f'Esto eliminará permanentemente la sesión <strong>#{selected_id}</strong> y todos sus datos. No se puede deshacer.</div>',
+        unsafe_allow_html=True,
+    )
+    confirm_delete = st.checkbox(f"Confirmo que quiero eliminar la sesión #{selected_id}", key="confirm_delete")
+    if st.button("🗑 Eliminar sesión", disabled=not confirm_delete, use_container_width=True):
+        if delete_session(selected_id):
+            st.success(f"Sesión #{selected_id} eliminada.")
+            st.rerun()
+        else:
+            st.error("No se pudo eliminar la sesión.")
 
 
 # ── Metrics row ───────────────────────────────────────────────────────────────

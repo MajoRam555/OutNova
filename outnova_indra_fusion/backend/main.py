@@ -482,3 +482,14 @@ async def update_status(
     db.refresh(record)
 
     return {"id": session_id, "status": new_status, "updated_at": record.updated_at}
+
+
+# ── Delete session ─────────────────────────────────────────────────────────
+@app.delete("/sessions/{session_id}")
+async def delete_session(session_id: int, db: Session = Depends(get_db)):
+    record = db.query(AnalysisSession).filter(AnalysisSession.id == session_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Sesión no encontrada.")
+    db.delete(record)
+    db.commit()
+    return {"deleted": session_id}
