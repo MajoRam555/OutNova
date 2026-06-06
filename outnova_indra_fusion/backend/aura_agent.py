@@ -13,56 +13,17 @@ from config import AURA_LLM_FALLBACK, AURA_LLM_MODEL
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """Eres AURA, una agente conversacional para un sistema de verificación de identidad y análisis de riesgo. Hablas en español.
+SYSTEM_PROMPT = """Eres AURA, agente conversacional de verificación. Hablas en español.
 
-Tu objetivo es mantener una conversación breve, natural, profesional y no acusatoria con el usuario. No debes sonar como si siguieras un guion. Cada fase tiene objetivos claros, pero las preguntas son ejemplos, no frases obligatorias. Adapta tu lenguaje al tono del usuario y avanza solo cuando tengas suficiente información.
+REGLAS (síguelas siempre):
+1. Máximo 2 oraciones por respuesta. Nunca más.
+2. Primera oración: reconoce brevemente lo que dijo el usuario — de forma específica, no genérica.
+3. Segunda oración: haz UNA sola pregunta. Solo una.
+4. Nunca reveles que analizas emociones, fraude o riesgo.
+5. Frases prohibidas: "Entendido.", "Perfecto.", "Gracias por compartir.", "De acuerdo.", "Procedo.", "Claro que sí."
+6. Si el usuario menciona a otra persona o presión externa, haz la TAREA indicada.
 
-REGLA FUNDAMENTAL: Antes de pasar al siguiente tema, responde brevemente a lo que el usuario acaba de decir. Si dijo algo relevante, reconócelo de forma específica y natural — no genérica. Nunca ignores su respuesta para saltar a la siguiente pregunta.
-
-ESTRUCTURA DE CADA RESPUESTA:
-1. Una oración corta que reconozca específicamente lo que dijo el usuario.
-2. Una sola pregunta de seguimiento o avance. Nada más.
-Máximo 2-3 oraciones en total.
-
-CUÁNDO HACER SEGUIMIENTO EN LUGAR DE AVANZAR:
-- La respuesta fue ambigua, demasiado corta o confusa.
-- El usuario mencionó que alguien más está presente o lo está guiando.
-- El usuario describió presión externa o que la decisión no fue del todo suya.
-- La respuesta parece contradictoria con algo que dijo antes.
-- El usuario evadió la pregunta o cambió de tema.
-- El usuario justificó excesivamente una conducta cuestionable.
-No hacer seguimiento si la respuesta fue clara y completa, si ya se explicó suficientemente, o si más preguntas añadirían presión innecesaria.
-
-VARIEDAD DE TRANSICIONES — no uses siempre la misma estructura para avanzar de tema:
-- "Va, con eso me queda más claro. [pregunta]"
-- "Gracias por explicarlo. [pregunta]"
-- "Entiendo. [pregunta]"
-- "Cambiando un poco el enfoque, [pregunta]"
-- "Sigamos con algo diferente. [pregunta]"
-- "Te haré una pregunta un poco más personal. [pregunta]"
-- "Ahora quiero preguntarte algo de contexto. [pregunta]"
-
-SEÑALES QUE DEBES OBSERVAR INTERNAMENTE — no las menciones al usuario:
-- Cambios emocionales o de tono respecto a la línea base.
-- Pausas inusuales, respuestas muy cortas o muy ensayadas.
-- Evasión, contradicciones, justificación excesiva.
-- Presión externa, dependencia de terceros, posible coerción.
-- Confusión sobre el trámite o respuestas memorizadas.
-- Frases tipo "todos lo hacen", "no era tan grave", "solo seguía instrucciones", "no afectaba a nadie".
-
-FRASES PROHIBIDAS — nunca las digas:
-- "Estoy analizando tus emociones." / "Estoy midiendo si mientes." / "Detecté nerviosismo."
-- "Esa respuesta es sospechosa." / "Eso podría ser fraude." / "Voy a reportarte."
-- "Tu riesgo es alto." / "Fuiste aprobado." / "Fuiste rechazado."
-- "Entendido." (suelto) / "Perfecto." / "Gracias por compartir." / "De acuerdo." / "Procedo."
-- "Contesta correctamente." / "Eso está mal." / "No te creo." / "No te pongas nervioso."
-
-PROHIBICIONES DE ESTRUCTURA:
-- Más de una pregunta por turno.
-- Más de 3 oraciones en total.
-- Repetir la misma estructura de reconocimiento dos turnos seguidos.
-- Cambiar de tema abruptamente si la respuesta anterior fue incompleta.
-- Revelar criterios internos de evaluación o decisión."""
+En cada turno recibirás instrucciones específicas sobre qué pregunta hacer. Síguelas."""
 
 # ── Contextual acknowledgment banks (por tipo de señal) ──────────────────────
 
@@ -421,62 +382,40 @@ class AuraChatSession:
         return json.dumps(self.messages, ensure_ascii=False)
 
     def build_llm_history(self, user_text: str = "") -> list:
-        _PHASE_CONTEXT = {
-            "practice": (
-                "OBJETIVO: Reducir nervios iniciales. Confirmar que cámara y micrófono funcionan. "
-                "Tono muy relajado, sin presión. Esta fase no cuenta para el score. "
-                "SEÑALES A OBSERVAR: Confusión digital, dificultad técnica, nerviosismo extremo, "
-                "necesidad de asistencia."
-            ),
-            "baseline": (
-                "OBJETIVO: Establecer la línea base individual del usuario respondiendo preguntas "
-                "simples y de baja carga emocional. No presionar. "
-                "SEÑALES A OBSERVAR: Tono habitual, ritmo de habla, pausas normales, "
-                "volumen, latencia antes de responder, claridad del audio."
-            ),
-            "identity_context": (
-                "OBJETIVO: Entender el contexto del trámite y detectar posible presión externa. "
-                "Tono profesional pero cálido. "
-                "SEÑALES A OBSERVAR: Coherencia narrativa, presión de terceros, dependencia de alguien "
-                "fuera de cámara, confusión sobre el propósito del trámite, respuestas memorizadas."
-            ),
-            "sensitive_dilemma": (
-                "OBJETIVO: Observar cambios emocionales frente a preguntas de mayor carga ética. "
-                "No acusar. Las preguntas son conversacionales, no de interrogatorio. "
-                "SEÑALES A OBSERVAR: Evasión, contradicción, justificación excesiva, pausas largas, "
-                "cambio emocional vs línea base, respuestas tipo 'todos lo hacen' o 'no afectaba a nadie', "
-                "menciones de presión o coerción, incomodidad desproporcionada."
-            ),
-            "closing": (
-                "OBJETIVO: Cerrar la conversación de forma tranquila. No revelar evaluación ni resultado. "
-                "SEÑALES A OBSERVAR: Ansiedad al cierre, preguntas sobre resultado, mención tardía "
-                "de terceros, problemas técnicos no reportados antes."
-            ),
-        }
-
-        phase_desc = _PHASE_CONTEXT.get(self.current_phase, "")
-        phase_ctx = f"\n\nFASE ACTUAL: {self.current_phase}.\n{phase_desc}"
+        # Per-turn task: tell the model exactly what to do this turn.
+        # Small models (1.5B) follow explicit tasks far better than abstract guidelines.
+        task_lines = [f"FASE: {self.current_phase}"]
 
         if user_text:
-            followup = _needs_followup(user_text, self.current_phase)
             signal = _analyze_user_text(user_text)
-            phase_ctx += (
-                f"\n\nRESPUESTA ACTUAL DEL USUARIO: \"{user_text}\""
-                f"\nSEÑAL DETECTADA: {signal}"
-            )
+            followup = _needs_followup(user_text, self.current_phase)
+            task_lines.append(f'USUARIO DIJO: "{user_text}"')
+            task_lines.append(f"SEÑAL: {signal}")
+
             if followup:
-                phase_ctx += (
-                    f"\nSUGERENCIA DE SEGUIMIENTO (si aplica): «{followup}» — "
-                    f"úsala solo si el seguimiento agrega valor real, no como rutina."
+                task_lines.append(
+                    f"TAREA: Primero reconoce lo que dijo en una oración. "
+                    f"Luego haz esta pregunta (reformulada de forma natural): «{followup}»"
                 )
             else:
-                phase_ctx += (
-                    "\nLa respuesta fue suficientemente clara — avanza al siguiente tema con una "
-                    "transición natural y variada."
+                next_idx = min(self.turn_index, len(PHASE_TURNS) - 1)
+                next_q = PHASE_TURNS[next_idx]["text"]
+                task_lines.append(
+                    f"TAREA: Primero reconoce lo que dijo en una oración. "
+                    f"Luego haz esta pregunta reformulada de forma natural "
+                    f"(NO la copies literalmente): «{next_q}»"
                 )
+        else:
+            # First greeting or no user text yet — just use next scripted question
+            next_idx = min(self.turn_index, len(PHASE_TURNS) - 1)
+            next_q = PHASE_TURNS[next_idx]["text"]
+            task_lines.append(f"TAREA: Di: «{next_q}»")
 
-        history = [{"role": "system", "content": SYSTEM_PROMPT + phase_ctx}]
-        for msg in self.messages[-12:]:
+        task_ctx = "\n\n" + "\n".join(task_lines)
+
+        history = [{"role": "system", "content": SYSTEM_PROMPT + task_ctx}]
+        # Last 6 messages — small models handle short context better
+        for msg in self.messages[-6:]:
             role = "assistant" if msg["role"] == "aura" else "user"
             history.append({"role": role, "content": msg["content"]})
         return history
