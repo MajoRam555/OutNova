@@ -312,11 +312,8 @@ st.markdown(f"""
 
 # ── Session card ──────────────────────────────────────────────────────────────
 score_str = f"{score:.1f}" if score is not None else "—"
-reason_row = (f'<div style="margin-top:12px;padding:10px 14px;background:#F8FAFC;'
-              f'border:1px solid #E5E7EB;border-radius:8px;font-size:13px;">{reason}</div>'
-              if reason else "")
 
-accessibility_badge = '<span class="on-badge on-blu">&#9855; Accesibilidad</span>' if accessibility else ''
+accessibility_badge = '<span class="on-badge on-blu">Accesibilidad</span>' if accessibility else ''
 risk_level_text = (
     "Bajo riesgo" if r_cls == "c-ok" else
     "Riesgo medio" if r_cls == "c-mid" else
@@ -325,32 +322,33 @@ risk_level_text = (
 )
 session_id_display = (s.get("client_session_id") or "—")[:24]
 created_at_display = (s.get("created_at") or "—")[:19].replace("T", " ")
+reason_html = (f'<div style="margin-top:12px;padding:10px 14px;background:#F8FAFC;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;color:#374151;">{reason}</div>' if reason else "")
+session_num = s.get("id", "—")
 
-st.markdown(f"""
-<div class="on-card-lg">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;">
-    <div>
-      <div class="on-lbl">Sesión seleccionada</div>
-      <div class="on-card-title">Dashboard INDRA · #{s['id']}</div>
-      <div class="on-card-sub">Panel de revisión biométrica y conversacional</div>
-      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        {badge(status, s_cls)}
-        {accessibility_badge}
-        <span style="font-size:11px;color:#9CA3AF;">
-          ID: <code style="background:#F1F5F9;padding:1px 6px;border-radius:4px;color:#374151;font-size:11px;">{session_id_display}</code>
-        </span>
-        <span style="font-size:11px;color:#9CA3AF;">{created_at_display}</span>
-        <span style="font-size:10px;color:#9CA3AF;background:#F1F5F9;padding:1px 7px;border-radius:999px;border:1px solid #E5E7EB;">{score_model}</span>
-      </div>
-    </div>
-    <div style="text-align:right;">
-      <div class="on-risk {r_cls}">{score_str}<span style="font-size:16px;font-weight:500">/100</span></div>
-      <div style="font-size:11px;color:#9CA3AF;margin-top:4px;">{risk_level_text}</div>
-    </div>
-  </div>
-  {reason_row}
-</div>
-""", unsafe_allow_html=True)
+card_html = (
+    f'<div class="on-card-lg">'
+    f'<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;">'
+    f'<div>'
+    f'<div class="on-lbl">Sesión seleccionada</div>'
+    f'<div class="on-card-title">Dashboard INDRA &middot; {session_num}</div>'
+    f'<div class="on-card-sub">Panel de revisión biométrica y conversacional</div>'
+    f'<div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+    f'{badge(status, s_cls)}'
+    f'{accessibility_badge}'
+    f'<span style="font-size:11px;color:#9CA3AF;">ID: <span style="background:#F1F5F9;padding:1px 6px;border-radius:4px;color:#374151;font-size:11px;font-family:monospace;">{session_id_display}</span></span>'
+    f'<span style="font-size:11px;color:#9CA3AF;">{created_at_display}</span>'
+    f'<span style="font-size:10px;color:#9CA3AF;background:#F1F5F9;padding:1px 7px;border-radius:999px;border:1px solid #E5E7EB;">{score_model}</span>'
+    f'</div>'
+    f'</div>'
+    f'<div style="text-align:right;">'
+    f'<div class="on-risk {r_cls}">{score_str}<span style="font-size:16px;font-weight:500">/100</span></div>'
+    f'<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">{risk_level_text}</div>'
+    f'</div>'
+    f'</div>'
+    f'{reason_html}'
+    f'</div>'
+)
+st.markdown(card_html, unsafe_allow_html=True)
 
 
 # ── Manual actions ────────────────────────────────────────────────────────────
