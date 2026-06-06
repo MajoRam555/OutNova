@@ -515,21 +515,25 @@ class AuraEngine:
         for model_id in models_to_try:
             try:
                 logger.info(f"[AURA] Intentando cargar LLM: {model_id}")
-                from transformers import AutoModelForCausalLM, AutoTokenizer
-                # Explicit import registers Qwen2ForCausalLM in the auto-class
-                # registry, fixing "Could not import module" on newer transformers.
-                try:
-                    from transformers import Qwen2ForCausalLM  # noqa: F401
-                except ImportError:
-                    pass
+                from transformers import AutoTokenizer
                 import torch
 
                 device = get_device() if AURA_USE_GPU else "cpu"
                 torch_dtype = torch.float16 if device == "cuda" else torch.float32
 
                 tokenizer = AutoTokenizer.from_pretrained(model_id)
+
+                # Use Qwen2ForCausalLM directly — bypasses the auto_map registry
+                # lookup that fails on some transformers versions.
                 try:
-                    model = AutoModelForCausalLM.from_pretrained(
+                    from transformers import Qwen2ForCausalLM
+                    _cls = Qwen2ForCausalLM
+                except ImportError:
+                    from transformers import AutoModelForCausalLM
+                    _cls = AutoModelForCausalLM
+
+                try:
+                    model = _cls.from_pretrained(
                         model_id,
                         torch_dtype=torch_dtype,
                         device_map=device,
@@ -539,7 +543,7 @@ class AuraEngine:
                     if "out of memory" in str(oom).lower():
                         logger.warning(f"[AURA] CUDA OOM al cargar {model_id} — fallback a CPU.")
                         torch.cuda.empty_cache()
-                        model = AutoModelForCausalLM.from_pretrained(
+                        model = _cls.from_pretrained(
                             model_id,
                             torch_dtype=torch.float32,
                             device_map="cpu",
