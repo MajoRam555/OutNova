@@ -21,7 +21,8 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from config import (AUDIO_DIR, INDRA_WORKERS, MAX_SESSION_SECONDS,
-                    MAX_UPLOAD_SIZE_MB, PTT_DIR, STATIC_DIR, VIDEO_DIR, AURA_LOAD_ON_START)
+                    MAX_UPLOAD_SIZE_MB, PTT_DIR, STATIC_DIR, VIDEO_DIR,
+                    AURA_LOAD_ON_START, USE_TTS, TTS_VOICE)
 from device_manager import log_device_info, get_gpu_status
 from database import (AnalysisSession, SessionLocal, create_session_record,
                        get_db, get_session_by_client_id, init_db,
@@ -262,7 +263,11 @@ async def ws_conversacion(websocket: WebSocket, session_id: str):
 
     session.add_message("aura", greeting)
     session.turn_count += 1
-    await send_json({"type": "aura_turn", "text": greeting, "turn": session.turn_count})
+    greeting_msg = {"type": "aura_turn", "text": greeting, "turn": session.turn_count}
+    if USE_TTS:
+        from tts_engine import synthesize_b64 as _tts
+        greeting_msg["audio_b64"] = await _tts(greeting, TTS_VOICE)
+    await send_json(greeting_msg)
 
     try:
         while True:
@@ -304,7 +309,11 @@ async def ws_conversacion(websocket: WebSocket, session_id: str):
 
                 session.add_message("aura", reply)
                 session.turn_count += 1
-                await send_json({"type": "aura_turn", "text": reply, "turn": session.turn_count})
+                reply_msg = {"type": "aura_turn", "text": reply, "turn": session.turn_count}
+                if USE_TTS:
+                    from tts_engine import synthesize_b64 as _tts
+                    reply_msg["audio_b64"] = await _tts(reply, TTS_VOICE)
+                await send_json(reply_msg)
 
     except WebSocketDisconnect:
         logger.info(f"[WS] Desconectado: {session_id}")

@@ -1677,6 +1677,7 @@
   let pttRecorder      = null;
   let pttChunks        = [];
   let pttActive        = false;
+  let _currentAudio    = null;
   let pttMimeType      = '';
 
   /* ════════════════════════════════════════════════════════
@@ -1991,7 +1992,11 @@
         const text = msg.text || msg.message || '';
         if (text) {
           addMessage('aura', text);
-          speakText(text);
+          if (msg.audio_b64) {
+            playAuraAudio(msg.audio_b64, text);
+          } else {
+            speakText(text);
+          }
         }
         break;
       }
@@ -2051,6 +2056,35 @@
   /* ════════════════════════════════════════════════════════
      SPEECH SYNTHESIS
   ════════════════════════════════════════════════════════ */
+
+  function _stopCurrentAudio() {
+    if (_currentAudio) {
+      _currentAudio.pause();
+      _currentAudio.src = '';
+      _currentAudio = null;
+    }
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    isSpeaking = false;
+  }
+
+  // Primary: play base64 MP3 from edge-tts (neural voice)
+  function playAuraAudio(b64, fallbackText) {
+    _stopCurrentAudio();
+    const audio = new Audio('data:audio/mp3;base64,' + b64);
+    _currentAudio = audio;
+    audio.onplay  = () => { isSpeaking = true;  setAuraState('speaking'); };
+    audio.onended = () => { isSpeaking = false; setAuraState('idle'); _currentAudio = null; };
+    audio.onerror = () => {
+      isSpeaking = false; setAuraState('idle'); _currentAudio = null;
+      if (fallbackText) speakText(fallbackText);
+    };
+    audio.play().catch(() => {
+      _currentAudio = null;
+      if (fallbackText) speakText(fallbackText);
+    });
+  }
+
+  // Fallback: browser Web Speech API
   function speakText(text) {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
@@ -2269,8 +2303,8 @@
      END SESSION → PHASE 3
   ════════════════════════════════════════════════════════ */
   btnEndSession.addEventListener('click', async () => {
-    // Stop speaking
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    // Stop speaking (neural audio + Web Speech API)
+    _stopCurrentAudio();
 
     // Send conversation_end over WS
     if (ws && ws.readyState === WebSocket.OPEN) {

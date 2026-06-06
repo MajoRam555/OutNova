@@ -38,5 +38,8 @@ imageio-ffmpeg>=0.4.9
 streamlit>=1.32.0
 plotly>=5.20.0
 
+# TTS — síntesis de voz neural para AURA
+edge-tts>=6.1.0
+
 # Utils
 tqdm>=4.66.0
