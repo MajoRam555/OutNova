@@ -75,6 +75,9 @@ hr{border:none !important;border-top:1px solid #E5E7EB !important;margin:14px 0 
 [data-testid='stCaptionContainer'] p{color:#9CA3AF !important;font-size:11px !important;}
 [data-testid='stExpander']{background:#FFFFFF !important;border:1px solid #E5E7EB !important;border-radius:10px !important;box-shadow:0 1px 2px rgba(0,0,0,.04) !important;}
 [data-testid='stExpander'] summary{color:#374151 !important;font-size:13px !important;}
+[data-testid='stExpander'] .stButton>button{background:#FEF2F2 !important;color:#991B1B !important;border-color:#FECACA !important;width:auto !important;}
+[data-testid='stExpander'] .stButton>button:hover{background:#FEE2E2 !important;}
+[data-testid='stExpander'] .stButton>button:disabled{background:#F9FAFB !important;color:#9CA3AF !important;border-color:#E5E7EB !important;}
 .on-header{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:14px;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:20px;}
 .on-logo-mark{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;background:#2563EB;border-radius:8px;font-size:12px;font-weight:700;color:#fff !important;letter-spacing:.02em;flex-shrink:0;}
 .on-logo-text{font-size:16px;font-weight:700;color:#111827 !important;letter-spacing:-.01em;}
@@ -377,20 +380,19 @@ with cd:
 # ── Delete session ─────────────────────────────────────────────────────────[...]
 with st.expander("⚠️ Zona de peligro"):
     st.markdown(
-        f'<div style="font-size:13px;color:#991B1B;margin-bottom:10px;">'
+        f'<div style="font-size:13px;color:#991B1B;margin-bottom:12px;">'
         f'Esto eliminará permanentemente la sesión <strong>#{selected_id}</strong> y todos sus datos. No se puede deshacer.</div>',
         unsafe_allow_html=True,
     )
-    col_del_confirm, col_del_btn = st.columns([2, 1])
-    with col_del_confirm:
-        confirm_delete = st.checkbox(f"Confirmo que quiero eliminar la sesión #{selected_id}", key="confirm_delete")
-    with col_del_btn:
-        if st.button("🗑 Eliminar sesión", disabled=not confirm_delete, use_container_width=True):
-            if delete_session(selected_id):
-                st.success(f"Sesión #{selected_id} eliminada.")
-                st.rerun()
-            else:
-                st.error("No se pudo eliminar la sesión.")
+    confirm_delete = st.checkbox(f"Confirmo que quiero eliminar la sesión #{selected_id}", key="confirm_delete")
+    st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
+    if st.button("🗑 Eliminar sesión", disabled=not confirm_delete, use_container_width=False,
+                 type="primary" if confirm_delete else "secondary"):
+        if delete_session(selected_id):
+            st.success(f"Sesión #{selected_id} eliminada.")
+            st.rerun()
+        else:
+            st.error("No se pudo eliminar la sesión.")
 
 
 # ── Metrics row ───────────────────────────────────────────────────────────────
