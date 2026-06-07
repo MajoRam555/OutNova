@@ -79,9 +79,13 @@ async def lifespan(app: FastAPI):
     from config import AURA_CLAUDE_API_KEY, AURA_CLAUDE_MODEL
     if AURA_CLAUDE_API_KEY:
         key_preview = AURA_CLAUDE_API_KEY[:12] + "..." + AURA_CLAUDE_API_KEY[-4:]
-        logger.info(f"[AURA] Claude API configurada — modelo: {AURA_CLAUDE_MODEL} · key: {key_preview}")
+        msg = f"[AURA] Claude API configurada — modelo: {AURA_CLAUDE_MODEL} · key: {key_preview}"
+        logger.info(msg)
+        print(f"\n✓ {msg}\n", flush=True)
     else:
-        logger.warning("[AURA] AURA_CLAUDE_API_KEY no configurada — usando LLM local como fallback.")
+        msg = "[AURA] AURA_CLAUDE_API_KEY no configurada — usando LLM local como fallback."
+        logger.warning(msg)
+        print(f"\n⚠  {msg}\n", flush=True)
 
     # Optional: load AURA LLM on start (fallback if Claude API fails)
     if AURA_LOAD_ON_START:
