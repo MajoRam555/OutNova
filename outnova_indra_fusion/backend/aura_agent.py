@@ -653,7 +653,7 @@ class AuraEngine:
             if len(words) > 70:
                 text = " ".join(words[:70]) + "."
 
-            logger.info(f"[AURA/Claude] {text[:80]}")
+            logger.debug(f"[AURA/Claude] {text[:80]}")
             return text if text else self.fallback_reply(session, session.turn_count, user_text)
 
         except Exception as e:
