@@ -1664,6 +1664,7 @@
   let vadCooldown      = false;
   let vadMimeType      = '';
   let vadLevel         = 0;
+  let vadStarted       = false;   // true once VAD has been started for this session
   let _currentAudio    = null;
 
   /* ════════════════════════════════════════════════════════
@@ -1869,11 +1870,8 @@
     // Start recording
     startRecording();
 
-    // Connect WebSocket
+    // Connect WebSocket — VAD starts after AURA finishes its first greeting
     connectWebSocket();
-
-    // Start VAD after a brief delay (let WS connect first)
-    setTimeout(startVAD, 800);
   }
 
   /* ════════════════════════════════════════════════════════
@@ -1982,12 +1980,13 @@
         if (text) {
           addMessage('aura', text);
           if (msg.audio_b64) {
-            playAuraAudio(msg.audio_b64, text);
+            playAuraAudio(msg.audio_b64);  // VAD starts after audio ends
           } else {
-            speakText(text);
+            // No audio from server — show text only, start VAD after short delay
+            setTimeout(_ensureVadStarted, 600);
           }
         }
-        // Release VAD cooldown — AURA finished generating (audio end releases isSpeaking)
+        // Release VAD cooldown so user can speak once AURA finishes
         vadCooldown = false;
         break;
       }
@@ -2054,50 +2053,35 @@
       _currentAudio.src = '';
       _currentAudio = null;
     }
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     isSpeaking = false;
   }
 
-  // Primary: play base64 MP3 from edge-tts (neural voice)
-  function playAuraAudio(b64, fallbackText) {
+  function _ensureVadStarted() {
+    if (!vadStarted) { vadStarted = true; startVAD(); }
+  }
+
+  // Play base64 MP3 from edge-tts (DaliaNeural — única voz activa)
+  function playAuraAudio(b64) {
     _stopCurrentAudio();
     const audio = new Audio('data:audio/mp3;base64,' + b64);
     _currentAudio = audio;
     audio.onplay  = () => { isSpeaking = true;  setAuraState('speaking'); };
-    audio.onended = () => { isSpeaking = false; setAuraState('idle'); _currentAudio = null; };
+    audio.onended = () => {
+      isSpeaking = false;
+      setAuraState('idle');
+      _currentAudio = null;
+      _ensureVadStarted();
+    };
     audio.onerror = () => {
-      isSpeaking = false; setAuraState('idle'); _currentAudio = null;
-      if (fallbackText) speakText(fallbackText);
+      isSpeaking = false;
+      setAuraState('idle');
+      _currentAudio = null;
+      _ensureVadStarted();
     };
     audio.play().catch(() => {
       _currentAudio = null;
-      if (fallbackText) speakText(fallbackText);
+      _ensureVadStarted();
     });
-  }
-
-  // Fallback: browser Web Speech API
-  function speakText(text) {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'es-ES';
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-
-    utterance.onstart = () => {
-      isSpeaking = true;
-      setAuraState('speaking');
-    };
-    utterance.onend = () => {
-      isSpeaking = false;
-      setAuraState('idle');
-    };
-    utterance.onerror = () => {
-      isSpeaking = false;
-      setAuraState('idle');
-    };
-
-    window.speechSynthesis.speak(utterance);
   }
 
   /* ════════════════════════════════════════════════════════

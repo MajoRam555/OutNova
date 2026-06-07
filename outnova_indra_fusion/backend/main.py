@@ -264,9 +264,10 @@ async def ws_conversacion(websocket: WebSocket, session_id: str):
         "used_fallback": st["used_fallback"] or not st["llm_ready"],
     })
 
-    # AURA greeting
+    # AURA greeting — use Claude if available, local LLM second, rule-based fallback
+    from config import AURA_CLAUDE_API_KEY as _claude_key
     greeting = engine.fallback_reply(session, 0)
-    if engine.llm_ready:
+    if engine.llm_ready or _claude_key:
         try:
             greeting = await loop.run_in_executor(
                 _llm_executor,
