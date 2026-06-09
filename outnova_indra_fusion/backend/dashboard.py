@@ -39,10 +39,14 @@ a{color:#2563EB !important;}
 [data-testid='stSidebar'] *{color:#374151 !important;}
 [data-testid='stSidebar'] h1,[data-testid='stSidebar'] h2,[data-testid='stSidebar'] h3{color:#111827 !important;}
 [data-testid='stSidebar'] hr{border-color:#E5E7EB !important;}
-[data-testid='stSidebar'] .stButton>button{
+[data-testid='stSidebar'] .stButton>button,
+[data-testid='stSidebar'] button[data-testid='baseButton-secondary'],
+[data-testid='stSidebar'] button[data-testid='baseButton-primary']{
   background:#2563EB !important;color:#FFFFFF !important;
   border:none !important;border-radius:8px !important;}
-[data-testid='stSidebar'] .stButton>button:hover{background:#1D4ED8 !important;}
+[data-testid='stSidebar'] .stButton>button:hover,
+[data-testid='stSidebar'] button[data-testid='baseButton-secondary']:hover,
+[data-testid='stSidebar'] button[data-testid='baseButton-primary']:hover{background:#1D4ED8 !important;}
 [data-testid='stTabs'] [role='tablist']{
   background:#F1F5F9 !important;border-radius:10px !important;
   padding:4px !important;border:1px solid #E5E7EB !important;gap:2px !important;}
@@ -75,6 +79,8 @@ hr{border:none !important;border-top:1px solid #E5E7EB !important;margin:14px 0 
 [data-testid='stCaptionContainer'] p{color:#9CA3AF !important;font-size:11px !important;}
 [data-testid='stExpander']{background:#FFFFFF !important;border:1px solid #E5E7EB !important;border-radius:10px !important;box-shadow:0 1px 2px rgba(0,0,0,.04) !important;}
 [data-testid='stExpander'] summary{color:#374151 !important;font-size:13px !important;}
+[data-testid='stExpander'] summary p,
+[data-testid='stExpander'] summary span{color:#991B1B !important;font-weight:600 !important;}
 [data-testid='stExpander'] .stButton>button{background:#FEF2F2 !important;color:#991B1B !important;border-color:#FECACA !important;width:auto !important;}
 [data-testid='stExpander'] .stButton>button:hover{background:#FEE2E2 !important;}
 [data-testid='stExpander'] .stButton>button:disabled{background:#F9FAFB !important;color:#9CA3AF !important;border-color:#E5E7EB !important;}
@@ -252,7 +258,7 @@ with st.sidebar:
     status_filter = st.selectbox("Estado", ["Todos","Pendiente","Procesando","Aprobado","Rechazado","Recaptura",
                                              "Revisión ligera","Revisión humana obligatoria","Riesgo crítico"],
                                  label_visibility="collapsed")
-    if st.button("↺  Actualizar lista", use_container_width=True):
+    if st.button("↺  Actualizar lista", use_container_width=True, type="primary"):
         st.rerun()
 
     st.divider()
@@ -378,7 +384,7 @@ with cd:
         if patch_status(selected_id, "Pendiente", "Marcado pendiente."): st.rerun()
 
 # ── Delete session ─────────────────────────────────────────────────────────[...]
-with st.expander("⚠️ Zona de peligro"):
+with st.expander("Zona de peligro"):
     st.markdown(
         f'<div style="font-size:13px;color:#991B1B;margin-bottom:12px;">'
         f'Esto eliminará permanentemente la sesión <strong>#{selected_id}</strong> y todos sus datos. No se puede deshacer.</div>',
