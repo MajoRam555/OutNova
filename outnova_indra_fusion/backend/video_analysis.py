@@ -2,11 +2,52 @@ import json
 import logging
 import os
 import subprocess
+import sys
+import types as _types
 from pathlib import Path
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+# ── DeepFace: compatibilidad TF 2.16+ ────────────────────────────────────────
+# TF 2.16+ eliminó tf.keras (movido a paquete separado tf-keras).
+# DeepFace asume tf.keras → inyectamos tf_keras antes de que lo importe.
+os.environ.setdefault("TF_USE_LEGACY_KERAS", "1")
+
+def _patch_tf_keras() -> None:
+    try:
+        import tensorflow as _tf
+        if not hasattr(_tf, "keras"):
+            try:
+                import tf_keras as _tf_keras
+                _tf.keras = _tf_keras
+            except ImportError:
+                pass
+        if hasattr(_tf, "keras"):
+            sys.modules.setdefault("tensorflow.keras", _tf.keras)
+    except Exception:
+        pass
+
+def _stub_mtcnn() -> None:
+    """Stub MTCNN para que DeepFace no lo cargue (usamos OpenCV en su lugar)."""
+    if "mtcnn" in sys.modules:
+        return
+    class _FakeMTCNN:
+        def __init__(self, *a, **kw): pass
+        def detect_faces(self, img): return []
+    _mods = [
+        "mtcnn", "mtcnn.mtcnn", "mtcnn.stages", "mtcnn.stages.stage_pnet",
+        "mtcnn.stages.stage_rnet", "mtcnn.stages.stage_onet",
+        "mtcnn.network", "mtcnn.network.pnet", "mtcnn.network.rnet", "mtcnn.network.onet",
+    ]
+    for name in _mods:
+        sys.modules[name] = _types.ModuleType(name)
+    sys.modules["mtcnn"].MTCNN = _FakeMTCNN
+
+_patch_tf_keras()
+_stub_mtcnn()
+# ─────────────────────────────────────────────────────────────────────────────
 
 HAAR_EYE = None
 HAAR_FACE = None
@@ -215,16 +256,26 @@ def detect_blinks(video_path: str) -> dict:
 def optional_deepface_analysis(video_path: str, sample_every_n_sec: float = 5.0) -> dict:
     """
     Optional DeepFace emotion analysis. Returns empty result if not available.
+    Uses opencv backend (no MTCNN), samples every 5s, silently skips bad frames.
     """
+    _EMPTY = {"deepface_available": False, "emotion_percentages": {},
+              "dominant_emotion": None, "stress_emotion_ratio": 0.0}
     try:
         from deepface import DeepFace
+    except ImportError:
+        return _EMPTY
+    except Exception as e:
+        logger.warning(f"[VIDEO] DeepFace import error: {e}")
+        return _EMPTY
+
+    try:
         import cv2
 
         cap = cv2.VideoCapture(video_path)
         fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-        sample_interval = int(fps * sample_every_n_sec)
+        sample_interval = max(1, int(fps * sample_every_n_sec))
 
-        emotion_accumulator = {}
+        emotion_accumulator: dict = {}
         samples = 0
         frame_idx = 0
 
@@ -237,21 +288,28 @@ def optional_deepface_analysis(video_path: str, sample_every_n_sec: float = 5.0)
                 continue
 
             try:
-                result = DeepFace.analyze(frame, actions=["emotion"], enforce_detection=False, silent=True)
-                if isinstance(result, list):
-                    result = result[0]
-                emotions = result.get("emotion", {})
+                analysis = DeepFace.analyze(
+                    frame,
+                    actions=["emotion"],
+                    enforce_detection=False,   # no falla si no detecta cara
+                    detector_backend="opencv", # usa Haar/OpenCV, no MTCNN
+                    silent=True,
+                )
+                if isinstance(analysis, list):
+                    analysis = analysis[0]
+                emotions = analysis.get("emotion", {})
                 for emo, val in emotions.items():
                     emotion_accumulator[emo] = emotion_accumulator.get(emo, 0.0) + val
                 samples += 1
-            except Exception:
-                pass
+            except Exception as frame_exc:
+                logger.debug(f"[VIDEO] DeepFace frame {frame_idx} omitido: {frame_exc}")
 
         cap.release()
 
         if samples == 0:
-            return {"deepface_available": True, "emotion_percentages": {}, "dominant_emotion": "unknown",
-                    "stress_emotion_ratio": 0.0}
+            return {"deepface_available": True, "emotion_percentages": {},
+                    "dominant_emotion": "unknown", "stress_emotion_ratio": 0.0,
+                    "frames_analyzed": 0}
 
         avg_emotions = {k: round(v / samples, 2) for k, v in emotion_accumulator.items()}
         dominant = max(avg_emotions, key=avg_emotions.get) if avg_emotions else "unknown"
@@ -261,20 +319,18 @@ def optional_deepface_analysis(video_path: str, sample_every_n_sec: float = 5.0)
         total_sum = sum(avg_emotions.values()) or 1
         stress_ratio = stress_sum / total_sum
 
+        logger.info(f"[VIDEO] DeepFace OK — {samples} frames, dominante={dominant}, stress={stress_ratio:.2f}")
         return {
             "deepface_available": True,
             "emotion_percentages": avg_emotions,
             "dominant_emotion": dominant,
             "stress_emotion_ratio": round(stress_ratio, 4),
+            "frames_analyzed": samples,
         }
 
-    except ImportError:
-        return {"deepface_available": False, "emotion_percentages": {}, "dominant_emotion": None,
-                "stress_emotion_ratio": 0.0}
     except Exception as e:
-        logger.warning(f"DeepFace error: {e}")
-        return {"deepface_available": False, "emotion_percentages": {}, "dominant_emotion": None,
-                "stress_emotion_ratio": 0.0, "error": str(e)}
+        logger.warning(f"[VIDEO] DeepFace analysis error: {e}")
+        return {**_EMPTY, "deepface_available": False, "error": str(e)}
 
 
 def analyze_video(video_path: str) -> dict:
