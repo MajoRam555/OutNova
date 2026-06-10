@@ -56,6 +56,9 @@ AUDIO_SAMPLE_RATE = int(os.getenv("AUDIO_SAMPLE_RATE", "16000"))
 # Thresholds
 MIN_LIGHT_THRESHOLD = float(os.getenv("MIN_LIGHT_THRESHOLD", "40"))
 MAX_NOISE_THRESHOLD = float(os.getenv("MAX_NOISE_THRESHOLD", "40"))
+# Calidad mínima de audio para no disparar Recaptura (0.0–1.0).
+# 0.50 es adecuado para micrófonos de laptop; subir a 0.70 en producción.
+QUALITY_CONFIDENCE_THRESHOLD = float(os.getenv("QUALITY_CONFIDENCE_THRESHOLD", "0.50"))
 
 # Upload
 MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "200"))

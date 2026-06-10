@@ -1,6 +1,8 @@
 import logging
 from typing import Optional, Dict, Any
 
+from config import QUALITY_CONFIDENCE_THRESHOLD
+
 logger = logging.getLogger(__name__)
 
 # Official weights
@@ -194,7 +196,7 @@ def calculate_final_score(
     status = "Pendiente"
     reason = ""
 
-    if quality_confidence < 0.70:
+    if quality_confidence < QUALITY_CONFIDENCE_THRESHOLD:
         status = "Recaptura"
         reason = f"Calidad de audio insuficiente (confianza={quality_confidence:.0%}). Recaptura recomendada."
     elif coercion_detected:
@@ -356,7 +358,7 @@ def compute_quality_risk(
 ) -> float:
     """Map audio quality score to quality risk."""
     aq = audio_quality_sub.get("audio_quality_risk_score", 50.0)
-    if quality_confidence < 0.70:
+    if quality_confidence < QUALITY_CONFIDENCE_THRESHOLD:
         aq = max(aq, 60.0)
     return round(min(100.0, aq), 2)
 
@@ -390,7 +392,7 @@ def calculate_contextual_risk_score(
     risk_score = round(min(100.0, max(0.0, risk_score)), 2)
 
     # Recaptura threshold
-    if quality_confidence < 0.70:
+    if quality_confidence < QUALITY_CONFIDENCE_THRESHOLD:
         status = "Recaptura"
         reason = f"Calidad de audio insuficiente (confianza={quality_confidence:.0%}). Recaptura recomendada."
         recommended_action = "recapture"

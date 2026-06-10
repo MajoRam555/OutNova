@@ -1,6 +1,8 @@
 import logging
 import numpy as np
 
+from config import QUALITY_CONFIDENCE_THRESHOLD
+
 logger = logging.getLogger(__name__)
 
 
@@ -82,7 +84,7 @@ def analyze_audio_quality(audio_path: str) -> dict:
             "clipping_ratio": round(clipping_ratio, 6),
             "snr_db": round(snr_db, 2),
             "sample_rate": sr,
-            "quality_ok": quality_confidence >= 0.70,
+            "quality_ok": quality_confidence >= QUALITY_CONFIDENCE_THRESHOLD,
             "quality_confidence": round(quality_confidence, 4),
             "low_volume_score": round(low_volume_score, 2),
             "noise_score": round(noise_score, 2),
