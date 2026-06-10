@@ -44,9 +44,16 @@ a{color:#2563EB !important;}
 [data-testid='stSidebar'] button[data-testid='baseButton-primary']{
   background:#2563EB !important;color:#FFFFFF !important;
   border:none !important;border-radius:8px !important;}
+[data-testid='stSidebar'] .stButton>button *,
+[data-testid='stSidebar'] button[data-testid='baseButton-secondary'] *,
+[data-testid='stSidebar'] button[data-testid='baseButton-primary'] *{color:#FFFFFF !important;}
 [data-testid='stSidebar'] .stButton>button:hover,
 [data-testid='stSidebar'] button[data-testid='baseButton-secondary']:hover,
 [data-testid='stSidebar'] button[data-testid='baseButton-primary']:hover{background:#1D4ED8 !important;}
+[data-testid='stSidebar'] [data-testid='stSelectbox'] div[data-baseweb],
+[data-testid='stSidebar'] [data-baseweb='select'] *{
+  background:#FFFFFF !important;color:#374151 !important;}
+[data-testid='stSidebar'] [data-baseweb='select'] svg{color:#6B7280 !important;}
 [data-testid='stTabs'] [role='tablist']{
   background:#F1F5F9 !important;border-radius:10px !important;
   padding:4px !important;border:1px solid #E5E7EB !important;gap:2px !important;}
