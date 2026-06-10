@@ -28,8 +28,8 @@ section.main>div,[data-testid='stVerticalBlock']{
   background:#F8FAFC !important;
   font-family:'Inter',system-ui,-apple-system,sans-serif !important;
 }
-*{font-family:'Inter',system-ui,-apple-system,sans-serif !important;}
-p,span,div,label,li{color:#374151 !important;}
+p,div,label,li,button,input,select,textarea{font-family:'Inter',system-ui,-apple-system,sans-serif !important;}
+p,div,label,li{color:#374151 !important;}
 h1,h2,h3,h4,h5,h6{color:#111827 !important;font-weight:700 !important;}
 a{color:#2563EB !important;}
 #MainMenu,footer,[data-testid='stToolbar'],[data-testid='stDecoration']{display:none !important;}
